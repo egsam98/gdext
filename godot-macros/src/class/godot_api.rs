@@ -5,7 +5,7 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 
-use proc_macro2::{Delimiter, Group, Ident, TokenStream};
+use proc_macro2::{Delimiter, Group, Ident, Span, TokenStream};
 use quote::spanned::Spanned;
 use quote::{format_ident, quote};
 
@@ -89,7 +89,7 @@ fn transform_inherent_impl(mut original_impl: venial::Impl) -> ParseResult<Token
 
     let (funcs, signals, out_virtual_impl) = process_godot_fns(&class_name, &mut original_impl)?;
 
-    let signal_registrations = make_signal_registrations(signals, &class_name_obj);
+    let signal_registrations = make_signal_registrations(&signals, &class_name_obj);
 
     let method_registrations: Vec<TokenStream> = funcs
         .into_iter()
@@ -98,6 +98,16 @@ fn transform_inherent_impl(mut original_impl: venial::Impl) -> ParseResult<Token
 
     let constant_registration =
         make_constant_registration(&mut original_impl, &class_name, &class_name_obj)?;
+
+    let signal_methods = signals.iter().map(|sig| {
+        let name = sig.signature.name.to_string();
+        let func_name = Ident::new(&("emit_".to_string() + &sig.signature.name.to_string()), Span::call_site());
+        quote! {
+            fn #func_name(&mut self) {
+                self.base_mut().emit_signal(#name.into(), &[]);
+            }
+        }
+    });
 
     let result = quote! {
         #original_impl
@@ -112,6 +122,10 @@ fn transform_inherent_impl(mut original_impl: venial::Impl) -> ParseResult<Token
             fn __register_constants() {
                 #constant_registration
             }
+        }
+
+        impl #class_name {
+            #(#signal_methods)*
         }
 
         ::godot::sys::plugin_add!(__GODOT_PLUGIN_REGISTRY in #prv; #prv::ClassPlugin {
@@ -129,7 +143,7 @@ fn transform_inherent_impl(mut original_impl: venial::Impl) -> ParseResult<Token
 }
 
 fn make_signal_registrations(
-    signals: Vec<SignalDefinition>,
+    signals: &Vec<SignalDefinition>,
     class_name_obj: &TokenStream,
 ) -> Vec<TokenStream> {
     let mut signal_registrations = Vec::new();

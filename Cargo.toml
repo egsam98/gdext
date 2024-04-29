@@ -10,7 +10,7 @@ members = [
     "godot",
 
     # Godot integration
-    "itest/rust",
+    # "itest/rust", temp
     "examples/dodge-the-creeps/rust",
     "examples/hot-reload/rust",
 
