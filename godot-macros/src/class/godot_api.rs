@@ -5,7 +5,7 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 
-use proc_macro2::{Delimiter, Group, Ident, Span, TokenStream};
+use proc_macro2::{Delimiter, Group, Ident, TokenStream};
 use quote::spanned::Spanned;
 use quote::{format_ident, quote};
 
@@ -100,11 +100,31 @@ fn transform_inherent_impl(mut original_impl: venial::Impl) -> ParseResult<Token
         make_constant_registration(&mut original_impl, &class_name, &class_name_obj)?;
 
     let signal_methods = signals.iter().map(|sig| {
-        let name = sig.signature.name.to_string();
-        let func_name = Ident::new(&("emit_".to_string() + &sig.signature.name.to_string()), Span::call_site());
+        let sig_name = sig.signature.name.to_string();
+        let func_emit_name = format_ident!("emit_{}", sig_name);
+        let func_connect_name = format_ident!("connect_{}", sig_name);
+        let args = sig.signature.params.iter()
+            .filter_map(|p| match &p.0 {
+                venial::FnParam::Typed(p) => Some(p),
+                venial::FnParam::Receiver(_) => None,
+            })
+            .collect::<Vec<_>>();
+        let args_name = args.iter().map(|arg| arg.name.clone());
+        let callable = {
+            let name = format_ident!("Callable{}", sig.signature.params.len());
+            let args_ty = args.iter().map(|arg| arg.ty.clone());
+            quote! {
+                #name<Recv, #(#args_ty,)*>
+            }
+        };
+
         quote! {
-            fn #func_name(&mut self) {
-                self.base_mut().emit_signal(#name.into(), &[]);
+            fn #func_emit_name(&mut self, #(#args,)*) {
+                self.base_mut().emit_signal(#sig_name.into(), &[#(#args_name.to_variant(),)*]);
+            }
+
+            fn #func_connect_name<Recv: godot::obj::WithBaseField>(&mut self, cb: #callable) {
+                self.base_mut().connect(#sig_name.into(), cb.into());
             }
         }
     });

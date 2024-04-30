@@ -14,7 +14,7 @@ mod util;
 
 use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
-use quote::quote;
+use quote::{format_ident, quote};
 
 use crate::util::ident;
 
@@ -851,4 +851,46 @@ where
         .unwrap_or_else(|e| e.to_compile_error());
 
     TokenStream::from(result2)
+}
+
+#[proc_macro]
+pub fn impl_callable(tokens: TokenStream) -> TokenStream {
+    let n = tokens.to_string().parse::<usize>().unwrap();
+    let mut call_args = Vec::new();
+    let type_name = format_ident!("Callable{}", n);
+    let args_ty = (0..n)
+        .map(|i| {
+            let gen_type = format_ident!("T{}", i);
+            call_args.push(quote! {
+                args[#i].to::<#gen_type>()
+            });
+            gen_type
+        })
+        .collect::<Vec<_>>();
+
+    quote! {
+        pub struct #type_name<Recv: crate::obj::WithBaseField, #(#args_ty: crate::builtin::meta::FromGodot,)*> {
+            recv: Gd<Recv>,
+            f: Box<dyn Fn(&mut Recv, #(#args_ty,)*) -> () + Send + Sync>,
+        }
+
+        impl <Recv: crate::obj::WithBaseField, #(#args_ty: crate::builtin::meta::FromGodot,)*> #type_name<Recv, #(#args_ty,)*> {
+            pub fn new(recv: Gd<Recv>, f: impl Fn(&mut Recv, #(#args_ty,)*) -> () + Send + Sync + 'static) -> Self {
+                Self { recv, f: Box::new(f) }
+            }
+        }
+
+        impl <Recv: crate::obj::WithBaseField + 'static, #(#args_ty: crate::builtin::meta::FromGodot + 'static,)*> From<#type_name<Recv, #(#args_ty,)*>> for Callable {
+            fn from(value: #type_name<Recv, #(#args_ty,)*>) -> Self {
+                Callable::from_fn(stringify!(#type_name), move |args| {
+                    (value.f)(
+                        &mut *args.last().unwrap().to::<Gd<Recv>>().bind_mut(),
+                        #(#call_args,)*
+                    );
+                    Ok(().to_variant())
+                })
+                .bindv(crate::builtin::Array::from_iter([value.recv.to_variant()]))
+            }
+        }
+    }.into()
 }

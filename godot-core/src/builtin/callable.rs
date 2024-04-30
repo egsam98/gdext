@@ -6,6 +6,7 @@
  */
 
 use godot_ffi as sys;
+use godot_macros::impl_callable;
 
 use crate::builtin::meta::{impl_godot_as_self, GodotType, ToGodot};
 use crate::builtin::{inner, StringName, Variant, VariantArray};
@@ -458,3 +459,10 @@ mod custom_callable {
         *r_is_valid = true as sys::GDExtensionBool;
     }
 }
+
+impl_callable!(0);
+impl_callable!(1);
+impl_callable!(2);
+impl_callable!(3);
+impl_callable!(4);
+impl_callable!(5);

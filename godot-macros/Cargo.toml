@@ -21,6 +21,7 @@ godot = { path = "../godot" }
 # Minimum versions compatible with -Zminimal-versions
 proc-macro2 = "1.0.63"
 quote = "1.0.29"
+syn = "2.0"
 
 venial = "0.6"
 
