@@ -51,7 +51,7 @@ pub fn transform_inherent_impl(mut impl_block: venial::Impl) -> ParseResult<Toke
     let (funcs, signals) = process_godot_fns(&class_name, &mut impl_block)?;
     let consts = process_godot_constants(&mut impl_block)?;
 
-    let signal_registrations = make_signal_registrations(signals, &class_name_obj);
+    let signal_registrations = make_signal_registrations(&signals, &class_name_obj);
 
     let method_registrations: Vec<TokenStream> = funcs
         .into_iter()
@@ -59,6 +59,36 @@ pub fn transform_inherent_impl(mut impl_block: venial::Impl) -> ParseResult<Toke
         .collect::<ParseResult<Vec<TokenStream>>>()?; // <- FIXME transpose this
 
     let constant_registration = make_constant_registration(consts, &class_name, &class_name_obj)?;
+
+    let signal_methods = signals.iter().map(|sig| {
+        let sig_name = sig.signature.name.to_string();
+        let func_emit_name = format_ident!("emit_{}", sig_name);
+        let func_connect_name = format_ident!("connect_{}", sig_name);
+        let args = sig.signature.params.iter()
+            .filter_map(|p| match &p.0 {
+                venial::FnParam::Typed(p) => Some(p),
+                venial::FnParam::Receiver(_) => None,
+            })
+            .collect::<Vec<_>>();
+        let args_name = args.iter().map(|arg| arg.name.clone());
+        let callable = {
+            let name = format_ident!("Callable{}", sig.signature.params.len());
+            let args_ty = args.iter().map(|arg| arg.ty.clone());
+            quote! {
+                #name<Recv, #(#args_ty,)*>
+            }
+        };
+
+        quote! {
+            fn #func_emit_name(&mut self, #(#args,)*) {
+                self.base_mut().emit_signal(#sig_name.into(), &[#(#args_name.to_variant(),)*]);
+            }
+
+            pub fn #func_connect_name<Recv: godot::obj::WithBaseField>(&mut self, cb: #callable) {
+                self.base_mut().connect(#sig_name.into(), cb.into());
+            }
+        }
+    });
 
     let result = quote! {
         #impl_block
@@ -72,6 +102,10 @@ pub fn transform_inherent_impl(mut impl_block: venial::Impl) -> ParseResult<Toke
             fn __register_constants() {
                 #constant_registration
             }
+        }
+
+        impl #class_name {
+            #(#signal_methods)*
         }
 
         ::godot::sys::plugin_add!(__GODOT_PLUGIN_REGISTRY in #prv; #prv::ClassPlugin {

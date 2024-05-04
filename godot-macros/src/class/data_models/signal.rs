@@ -19,7 +19,7 @@ pub struct SignalDefinition {
 }
 
 pub fn make_signal_registrations(
-    signals: Vec<SignalDefinition>,
+    signals: &Vec<SignalDefinition>,
     class_name_obj: &TokenStream,
 ) -> Vec<TokenStream> {
     let mut signal_registrations = Vec::new();
