@@ -80,7 +80,7 @@ pub fn transform_inherent_impl(mut impl_block: venial::Impl) -> ParseResult<Toke
         };
 
         quote! {
-            fn #func_emit_name(&mut self, #(#args,)*) {
+            pub fn #func_emit_name(&mut self, #(#args,)*) {
                 self.base_mut().emit_signal(#sig_name.into(), &[#(#args_name.to_variant(),)*]);
             }
 
