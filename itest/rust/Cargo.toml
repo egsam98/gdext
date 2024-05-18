@@ -2,7 +2,7 @@
 name = "itest"
 version = "0.1.0"
 edition = "2021"
-rust-version = "1.77.1"
+rust-version = "1.78"
 license = "MPL-2.0"
 publish = false
 
@@ -16,7 +16,6 @@ serde = ["dep:serde", "dep:serde_json", "godot/serde"]
 
 # Do not add features here that are 1:1 forwarded to the `godot` crate, unless they are needed by itest itself.
 # Instead, compile itest with `--features godot/my-feature`.
-
 
 [dependencies]
 godot = { path = "../../godot", default-features = false, features = ["trace"] }

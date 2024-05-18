@@ -192,16 +192,10 @@ pub fn unqualified_type_name<T>() -> &'static str {
 /// Needed for `cast_fn_ptr` macro.
 pub(crate) trait Inner: Sized {
     type FnPtr: Sized;
-
-    fn extract(self, error_msg: &str) -> Self::FnPtr;
 }
 
 impl<T> Inner for Option<T> {
     type FnPtr = T;
-
-    fn extract(self, error_msg: &str) -> Self::FnPtr {
-        self.expect(error_msg)
-    }
 }
 
 // ----------------------------------------------------------------------------------------------------------------------------------------------
