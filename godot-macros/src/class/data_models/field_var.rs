@@ -169,7 +169,7 @@ impl GetterSetterImpl {
         match kind {
             GetSet::Get => {
                 signature = quote! {
-                    fn #function_name(&self) -> <#field_type as ::godot::builtin::meta::GodotConvert>::Via
+                    fn #function_name(&self) -> <#field_type as ::godot::meta::GodotConvert>::Via
                 };
                 function_body = quote! {
                     <#field_type as ::godot::register::property::Var>::get_property(&self.#field_name)
@@ -177,7 +177,7 @@ impl GetterSetterImpl {
             }
             GetSet::Set => {
                 signature = quote! {
-                    fn #function_name(&mut self, #field_name: <#field_type as ::godot::builtin::meta::GodotConvert>::Via)
+                    fn #function_name(&mut self, #field_name: <#field_type as ::godot::meta::GodotConvert>::Via)
                 };
                 function_body = quote! {
                     <#field_type as ::godot::register::property::Var>::set_property(&mut self.#field_name, #field_name);
@@ -195,7 +195,6 @@ impl GetterSetterImpl {
         let export_token = make_method_registration(
             class_name,
             FuncDefinition {
-                signature: signature.clone(),
                 signature_info: into_signature_info(signature, class_name, false),
                 // Since we're analyzing a struct's field, we don't have access to the corresponding get/set function's
                 // external (non-#[func]) attributes. We have to assume the function exists and has the name the user
@@ -205,7 +204,6 @@ impl GetterSetterImpl {
                 external_attributes: Vec::new(),
                 rename: None,
                 is_script_virtual: false,
-                has_gd_self: false,
             },
         );
 

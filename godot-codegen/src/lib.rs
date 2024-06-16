@@ -5,11 +5,17 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 
+//! # Internal crate of [**godot-rust**](https://godot-rust.github.io)
+//!
+//! Do not depend on this crate directly, instead use the `godot` crate.
+//! No SemVer or other guarantees are provided.
+
 // Codegen has no FFI and thus no reason to use unsafe code.
 #![forbid(unsafe_code)]
 
 mod context;
 mod conv;
+mod formatter;
 mod generator;
 mod models;
 mod special_cases;
@@ -27,7 +33,7 @@ use crate::generator::utility_functions::generate_utilities_file;
 use crate::generator::{
     generate_core_central_file, generate_core_mod_file, generate_sys_builtin_lifecycle_file,
     generate_sys_builtin_methods_file, generate_sys_central_file, generate_sys_classes_file,
-    generate_sys_utilities_file,
+    generate_sys_module_file, generate_sys_utilities_file,
 };
 use crate::models::domain::{ApiView, ExtensionApi};
 use crate::models::json::{load_extension_api, JsonExtensionApi};
@@ -45,15 +51,46 @@ fn write_file(path: &Path, contents: String) {
         .unwrap_or_else(|e| panic!("failed to write code file to {};\n\t{}", path.display(), e));
 }
 
-#[cfg(feature = "codegen-fmt")]
+#[cfg(not(feature = "codegen-rustfmt"))]
 fn submit_fn(path: PathBuf, tokens: TokenStream) {
-    write_file(&path, godot_fmt::format_tokens(tokens));
+    write_file(&path, formatter::format_tokens(tokens));
 }
 
-#[cfg(not(feature = "codegen-fmt"))]
-fn submit_fn(path: PathBuf, tokens: TokenStream) {
-    write_file(&path, tokens.to_string());
+#[cfg(feature = "codegen-rustfmt")]
+mod rustfmt {
+    use super::*;
+    use std::process::Command;
+    use std::sync::Mutex;
+
+    pub fn submit_fn(path: PathBuf, tokens: TokenStream) {
+        write_file(&path, tokens.to_string());
+        FILES_TO_RUSTFMT.lock().unwrap().push(path);
+    }
+
+    pub fn rustfmt_files() {
+        let out_files = FILES_TO_RUSTFMT.lock().unwrap();
+        println!("Format {} generated files...", out_files.len());
+
+        for files in out_files.chunks(20) {
+            let mut command = Command::new("rustfmt");
+            for file in files {
+                command.arg(file);
+            }
+
+            let status = command.status().expect("failed to invoke rustfmt");
+            if !status.success() {
+                panic!("rustfmt failed on {:?}", command);
+            }
+        }
+
+        println!("Rustfmt completed successfully");
+    }
+
+    static FILES_TO_RUSTFMT: Mutex<Vec<PathBuf>> = Mutex::new(Vec::new());
 }
+
+#[cfg(feature = "codegen-rustfmt")]
+pub(crate) use rustfmt::*;
 
 pub fn generate_sys_files(
     sys_gen_path: &Path,
@@ -72,7 +109,7 @@ pub fn generate_sys_files(
     // Deallocate all the JSON models; no longer needed for codegen.
     // drop(json_api);
 
-    generate_sys_central_file(&api, &mut ctx, sys_gen_path, &mut submit_fn);
+    generate_sys_central_file(&api, sys_gen_path, &mut submit_fn);
     watch.record("generate_central_file");
 
     generate_sys_builtin_methods_file(&api, sys_gen_path, &mut ctx, &mut submit_fn);
@@ -90,6 +127,15 @@ pub fn generate_sys_files(
     let is_godot_4_0 = api.godot_version.major == 4 && api.godot_version.minor == 0;
     generate_sys_interface_file(h_path, sys_gen_path, is_godot_4_0, &mut submit_fn);
     watch.record("generate_interface_file");
+
+    generate_sys_module_file(sys_gen_path, &mut submit_fn);
+    watch.record("generate_module_file");
+
+    #[cfg(feature = "codegen-rustfmt")]
+    {
+        rustfmt_files();
+        watch.record("rustfmt");
+    }
 }
 
 pub fn generate_core_files(core_gen_path: &Path) {
@@ -141,6 +187,12 @@ pub fn generate_core_files(core_gen_path: &Path) {
         &mut submit_fn,
     );
     watch.record("generate_native_structures_files");
+
+    #[cfg(feature = "codegen-rustfmt")]
+    {
+        rustfmt_files();
+        watch.record("rustfmt");
+    }
 
     watch.write_stats_to(&core_gen_path.join("codegen-stats.txt"));
 }

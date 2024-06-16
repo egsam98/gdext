@@ -84,13 +84,24 @@ fn to_hardcoded_rust_enum(ty: &str) -> Option<&str> {
 /// Maps an input type to a Godot type with the same C representation. This is subtly different than [`to_rust_type`],
 /// which maps to an appropriate corresponding Rust type. This function should be used in situations where the C ABI for
 /// a type must match the Godot equivalent exactly, such as when dealing with pointers.
-pub(crate) fn to_rust_type_abi(ty: &str, ctx: &mut Context) -> RustTy {
-    match ty {
+pub(crate) fn to_rust_type_abi(ty: &str, ctx: &mut Context) -> (RustTy, bool) {
+    let mut is_obj = false;
+    let ty = match ty {
+        // In native structures, object pointers are mapped to opaque entities. Instead, an accessor function is provided.
+        "Object*" => {
+            is_obj = true;
+            RustTy::RawPointer {
+                inner: Box::new(RustTy::BuiltinIdent(ident("c_void"))),
+                is_const: false,
+            }
+        }
         "int" => RustTy::BuiltinIdent(ident("i32")),
         "float" => RustTy::BuiltinIdent(ident("f32")),
         "double" => RustTy::BuiltinIdent(ident("f64")),
         _ => to_rust_type(ty, None, ctx),
-    }
+    };
+
+    (ty, is_obj)
 }
 
 /// Maps an _input_ type from the Godot JSON to the corresponding Rust type (wrapping some sort of a token stream).
@@ -164,7 +175,7 @@ fn to_rust_type_uncached(full_ty: &GodotTy, ctx: &mut Context) -> RustTy {
             let bitfield_ty = conv::make_enum_name(enum_);
 
             RustTy::EngineBitfield {
-                tokens: quote! { crate::engine::#module::#bitfield_ty},
+                tokens: quote! { crate::classes::#module::#bitfield_ty},
                 surrounding_class: Some(class.to_string()),
             }
         } else {
@@ -172,7 +183,7 @@ fn to_rust_type_uncached(full_ty: &GodotTy, ctx: &mut Context) -> RustTy {
             let bitfield_ty = conv::make_enum_name(bitfield);
 
             RustTy::EngineBitfield {
-                tokens: quote! { crate::engine::global::#bitfield_ty },
+                tokens: quote! { crate::global::#bitfield_ty },
                 surrounding_class: None,
             }
         };
@@ -185,7 +196,7 @@ fn to_rust_type_uncached(full_ty: &GodotTy, ctx: &mut Context) -> RustTy {
             let enum_ty = conv::make_enum_name(enum_);
 
             RustTy::EngineEnum {
-                tokens: quote! { crate::engine::#module::#enum_ty },
+                tokens: quote! { crate::classes::#module::#enum_ty },
                 surrounding_class: Some(class.to_string()),
             }
         } else {
@@ -193,7 +204,7 @@ fn to_rust_type_uncached(full_ty: &GodotTy, ctx: &mut Context) -> RustTy {
             let enum_ty = conv::make_enum_name(qualified_enum);
 
             RustTy::EngineEnum {
-                tokens: quote! { crate::engine::global::#enum_ty },
+                tokens: quote! { crate::global::#enum_ty },
                 surrounding_class: None,
             }
         };
@@ -221,7 +232,7 @@ fn to_rust_type_uncached(full_ty: &GodotTy, ctx: &mut Context) -> RustTy {
     } else {
         let ty = rustify_ty(ty);
         RustTy::EngineClass {
-            tokens: quote! { Gd<crate::engine::#ty> },
+            tokens: quote! { Gd<crate::classes::#ty> },
             inner_class: ty,
         }
     }

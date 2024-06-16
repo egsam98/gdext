@@ -5,15 +5,19 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 
-use godot_cell::{InaccessibleGuard, MutGuard, RefGuard};
+#[cfg(not(feature = "experimental-threads"))]
+use godot_cell::panicking::{InaccessibleGuard, MutGuard, RefGuard};
+
+#[cfg(feature = "experimental-threads")]
+use godot_cell::blocking::{InaccessibleGuard, MutGuard, RefGuard};
+
 use godot_ffi::out;
 
 use std::fmt::Debug;
 use std::ops::{Deref, DerefMut};
 
-use crate::engine::ScriptInstance;
-
-use super::{Gd, GodotClass};
+use crate::obj::script::ScriptInstance;
+use crate::obj::{Gd, GodotClass};
 
 /// Immutably/shared bound reference guard for a [`Gd`][crate::obj::Gd] smart pointer.
 ///
@@ -119,9 +123,8 @@ macro_rules! make_base_mut {
     ($ident:ident, $bound:ident, $doc_type:ident, $doc_path:path, $object_name:literal) => {
         /// Mutable/exclusive reference guard for a [`Base`](crate::obj::Base) pointer.
         ///
-        #[doc = "This can be used to call methods on the base object of a rust object that takes `&self` or `&mut self` as\n"]
-        #[doc = "the receiver.\n"]
-        #[doc = "\n"]
+        /// This can be used to call methods on the base object of a Rust object, which takes `&self` or `&mut self` as the receiver.
+        ///
         #[doc = concat!("See [`", stringify!($doc_type), "::base_mut()`](", stringify!($doc_path), "::base_mut()) for usage.\n")]
         pub struct $ident<'a, T: $bound> {
             gd: Gd<T::Base>,
@@ -175,13 +178,13 @@ make_base_ref!(
     ScriptBaseRef,
     ScriptInstance,
     SiMut,
-    crate::engine::SiMut,
+    crate::obj::script::SiMut,
     "[`ScriptInstance`]"
 );
 make_base_mut!(
     ScriptBaseMut,
     ScriptInstance,
     SiMut,
-    crate::engine::SiMut,
+    crate::obj::script::SiMut,
     "['ScriptInstance']"
 );

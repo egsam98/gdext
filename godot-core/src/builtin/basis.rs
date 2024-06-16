@@ -10,13 +10,10 @@ use sys::{ffi_methods, GodotFfi};
 
 use crate::builtin::math::{ApproxEq, FloatExt, GlamConv, GlamType};
 use crate::builtin::real_consts::FRAC_PI_2;
-use crate::builtin::{real, Quaternion, RMat3, RQuat, RVec2, RVec3, Vector3};
-
+use crate::builtin::{real, EulerOrder, Quaternion, RMat3, RQuat, RVec2, RVec3, Vector3};
 use std::cmp::Ordering;
 use std::fmt::Display;
 use std::ops::{Mul, MulAssign};
-
-use super::meta::impl_godot_as_self;
 
 /// A 3x3 matrix, typically used as an orthogonal basis for [`Transform3D`](crate::builtin::Transform3D).
 ///
@@ -165,7 +162,7 @@ impl Basis {
     }
 
     /// Creates a `[Vector3; 3]` with the columns of the `Basis`.
-    pub fn to_cols(self) -> [Vector3; 3] {
+    pub fn to_cols(&self) -> [Vector3; 3] {
         self.transposed().rows
     }
 
@@ -173,7 +170,7 @@ impl Basis {
     ///
     /// _Godot equivalent: `Basis.get_rotation_quaternion()`_
     #[doc(alias = "get_rotation_quaternion")]
-    pub fn to_quat(self) -> Quaternion {
+    pub fn to_quat(&self) -> Quaternion {
         RQuat::from_mat3(&self.orthonormalized().to_glam()).to_front()
     }
 
@@ -214,7 +211,7 @@ impl Basis {
     /// The order of the angles are given by `order`.
     ///
     /// _Godot equivalent: `Basis.get_euler()`_
-    pub fn to_euler(self, order: EulerOrder) -> Vector3 {
+    pub fn to_euler(&self, order: EulerOrder) -> Vector3 {
         use glam::swizzles::Vec3Swizzles as _;
 
         let col_a = self.col_a().to_glam();
@@ -322,6 +319,7 @@ impl Basis {
         ))
     }
 
+    #[allow(clippy::wrong_self_convention)]
     fn to_euler_inner(major: real, pair0: RVec2, pair1: RVec2, pair2: RVec2) -> RVec3 {
         match Self::is_between_neg1_1(major) {
             // It's -1
@@ -348,15 +346,15 @@ impl Basis {
     ///
     /// _Godot equivalent: `Basis.scaled()`_
     #[must_use]
-    pub fn scaled(self, scale: Vector3) -> Self {
-        Self::from_diagonal(scale.x, scale.y, scale.z) * self
+    pub fn scaled(&self, scale: Vector3) -> Self {
+        Self::from_diagonal(scale.x, scale.y, scale.z) * (*self)
     }
 
     /// Returns the inverse of the matrix.
     ///
     /// _Godot equivalent: `Basis.inverse()`_
     #[must_use]
-    pub fn inverse(self) -> Basis {
+    pub fn inverse(&self) -> Basis {
         self.glam(|mat| mat.inverse())
     }
 
@@ -364,7 +362,7 @@ impl Basis {
     ///
     /// _Godot equivalent: `Basis.transposed()`_
     #[must_use]
-    pub fn transposed(self) -> Self {
+    pub fn transposed(&self) -> Self {
         Self::from_cols(self.rows[0], self.rows[1], self.rows[2])
     }
 
@@ -378,7 +376,7 @@ impl Basis {
     ///
     /// _Godot equivalent: `Basis.orthonormalized()`_
     #[must_use]
-    pub fn orthonormalized(self) -> Self {
+    pub fn orthonormalized(&self) -> Self {
         assert!(
             !self.determinant().is_zero_approx(),
             "Determinant should not be zero."
@@ -403,8 +401,8 @@ impl Basis {
     ///
     /// _Godot equivalent: `Basis.rotated()`_
     #[must_use]
-    pub fn rotated(self, axis: Vector3, angle: real) -> Self {
-        Self::from_axis_angle(axis, angle) * self
+    pub fn rotated(&self, axis: Vector3, angle: real) -> Self {
+        Self::from_axis_angle(axis, angle) * (*self)
     }
 
     /// Assuming that the matrix is a proper rotation matrix, slerp performs
@@ -412,7 +410,7 @@ impl Basis {
     ///
     /// _Godot equivalent: `Basis.slerp()`_
     #[must_use]
-    pub fn slerp(self, other: Self, weight: real) -> Self {
+    pub fn slerp(&self, other: &Self, weight: real) -> Self {
         let from = self.to_quat();
         let to = other.to_quat();
 
@@ -598,26 +596,13 @@ impl Mul<Vector3> for Basis {
 // This type is represented as `Self` in Godot, so `*mut Self` is sound.
 unsafe impl GodotFfi for Basis {
     fn variant_type() -> sys::VariantType {
-        sys::VariantType::Basis
+        sys::VariantType::BASIS
     }
 
     ffi_methods! { type sys::GDExtensionTypePtr = *mut Self; .. }
 }
 
-impl_godot_as_self!(Basis);
-
-/// The ordering used to interpret a set of euler angles as extrinsic
-/// rotations.
-#[derive(Copy, Clone, Eq, PartialEq, Debug)]
-#[repr(C)]
-pub enum EulerOrder {
-    XYZ = 0,
-    XZY = 1,
-    YXZ = 2,
-    YZX = 3,
-    ZXY = 4,
-    ZYX = 5,
-}
+crate::meta::impl_godot_as_self!(Basis);
 
 #[cfg(test)]
 mod test {

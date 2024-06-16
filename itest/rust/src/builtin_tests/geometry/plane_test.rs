@@ -9,8 +9,8 @@ use crate::framework::itest;
 
 use godot::builtin::inner::InnerPlane;
 use godot::builtin::math::{assert_eq_approx, ApproxEq};
-use godot::builtin::meta::ToGodot;
 use godot::builtin::{real, Plane, RealConv, Vector3};
+use godot::meta::ToGodot;
 
 use std::fmt::Debug;
 
@@ -215,7 +215,7 @@ fn plane_intersect_3() {
     let c = Plane::new(Vector3::new(-1.0, 6.0, 0.5).normalized(), 0.0);
     check_mapping_eq(
         "intersect_3",
-        a.intersect_3(&b, &c)
+        a.intersect_3(b, c)
             .as_ref()
             .map(ToGodot::to_variant)
             .unwrap_or_default(),
@@ -228,7 +228,7 @@ fn plane_intersect_3() {
     let c = Plane::new(Vector3::new(1.5, 6.3, 2.2).normalized(), 9.5);
     check_mapping_eq(
         "intersect_3",
-        a.intersect_3(&b, &c)
+        a.intersect_3(b, c)
             .as_ref()
             .map(ToGodot::to_variant)
             .unwrap_or_default(),

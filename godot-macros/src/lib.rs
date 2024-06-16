@@ -5,6 +5,11 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 
+//! # Internal crate of [**godot-rust**](https://godot-rust.github.io)
+//!
+//! Do not depend on this crate directly, instead use the `godot` crate.
+//! No SemVer or other guarantees are provided.
+
 mod bench;
 mod class;
 mod derive;
@@ -419,7 +424,7 @@ use crate::util::ident;
 /// - `onready` and `no_onready`
 ///
 /// ```no_run
-/// use godot::engine::Node;
+/// use godot::classes::Node;
 ///
 /// // There's no reason to do this, but for the sake of example:
 /// type Super<T> = godot::obj::Base<T>;
@@ -435,7 +440,7 @@ use crate::util::ident;
 ///    unbase: Base<Node>,
 /// }
 /// # #[godot::register::godot_api]
-/// # impl godot::engine::INode for MyStruct {
+/// # impl godot::classes::INode for MyStruct {
 /// #     fn init(base: godot::obj::Base<Self::Base>) -> Self { todo!() }
 /// # }
 /// ```
@@ -542,6 +547,21 @@ pub fn derive_godot_class(input: TokenStream) -> TokenStream {
 /// }
 /// ```
 ///
+/// Using _any_ trait other than the one corresponding with the base class will result in compilation failure.
+///
+/// ```compile_fail
+/// # use godot::prelude::*;
+/// #[derive(GodotClass)]
+/// #[class(init, base=Node3D)]
+/// pub struct My3DNode;
+///
+/// #[godot_api]
+/// impl INode for My3DNode {
+///     fn ready(&mut self) {
+///         godot_print!("Hello World!");
+///     }
+/// }
+/// ```
 ///
 /// # User-defined functions
 ///

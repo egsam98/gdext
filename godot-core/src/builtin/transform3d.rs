@@ -14,8 +14,6 @@ use crate::builtin::{real, Aabb, Basis, Plane, Projection, RAffine3, Vector3};
 use std::fmt::Display;
 use std::ops::Mul;
 
-use super::meta::impl_godot_as_self;
-
 /// Affine 3D transform (3x4 matrix).
 ///
 /// Used for 3D linear transformations. Uses a basis + origin representation.
@@ -83,7 +81,7 @@ impl Transform3D {
     /// the projection matrix.
     ///
     /// _Godot equivalent: `Transform3D(Projection from)`_
-    pub fn from_projection(proj: Projection) -> Self {
+    pub fn from_projection(proj: &Projection) -> Self {
         let a = Vector3::new(proj.cols[0].x, proj.cols[0].y, proj.cols[0].z);
         let b = Vector3::new(proj.cols[1].x, proj.cols[1].y, proj.cols[1].z);
         let c = Vector3::new(proj.cols[2].x, proj.cols[2].y, proj.cols[2].z);
@@ -116,14 +114,14 @@ impl Transform3D {
     /// Returns the inverse of the transform, under the assumption that the
     /// transformation is composed of rotation, scaling and translation.
     #[must_use]
-    pub fn affine_inverse(self) -> Self {
+    pub fn affine_inverse(&self) -> Self {
         self.glam(|aff| aff.inverse())
     }
 
     /// Returns a transform interpolated between this transform and another by
     /// a given weight (on the range of 0.0 to 1.0).
     #[must_use]
-    pub fn interpolate_with(self, other: Self, weight: real) -> Self {
+    pub fn interpolate_with(&self, other: &Self, weight: real) -> Self {
         let src_scale = self.basis.scale();
         let src_rot = self.basis.to_quat().normalized();
         let src_loc = self.origin;
@@ -153,7 +151,7 @@ impl Transform3D {
     /// See [`Basis::new_looking_at()`] for more information.
     #[cfg(before_api = "4.1")]
     #[must_use]
-    pub fn looking_at(self, target: Vector3, up: Vector3) -> Self {
+    pub fn looking_at(&self, target: Vector3, up: Vector3) -> Self {
         Self {
             basis: Basis::new_looking_at(target - self.origin, up),
             origin: self.origin,
@@ -162,7 +160,7 @@ impl Transform3D {
 
     #[cfg(since_api = "4.1")]
     #[must_use]
-    pub fn looking_at(self, target: Vector3, up: Vector3, use_model_front: bool) -> Self {
+    pub fn looking_at(&self, target: Vector3, up: Vector3, use_model_front: bool) -> Self {
         Self {
             basis: Basis::new_looking_at(target - self.origin, up, use_model_front),
             origin: self.origin,
@@ -174,7 +172,7 @@ impl Transform3D {
     ///
     /// _Godot equivalent: Transform3D.orthonormalized()_
     #[must_use]
-    pub fn orthonormalized(self) -> Self {
+    pub fn orthonormalized(&self) -> Self {
         Self {
             basis: self.basis.orthonormalized(),
             origin: self.origin,
@@ -188,7 +186,7 @@ impl Transform3D {
     ///
     /// _Godot equivalent: `Transform2D.rotated()`_
     #[must_use]
-    pub fn rotated(self, axis: Vector3, angle: real) -> Self {
+    pub fn rotated(&self, axis: Vector3, angle: real) -> Self {
         let rotation = Basis::from_axis_angle(axis, angle);
         Self {
             basis: rotation * self.basis,
@@ -202,7 +200,7 @@ impl Transform3D {
     ///
     /// _Godot equivalent: `Transform2D.rotated_local()`_
     #[must_use]
-    pub fn rotated_local(self, axis: Vector3, angle: real) -> Self {
+    pub fn rotated_local(&self, axis: Vector3, angle: real) -> Self {
         Self {
             basis: self.basis * Basis::from_axis_angle(axis, angle),
             origin: self.origin,
@@ -216,7 +214,7 @@ impl Transform3D {
     ///
     /// _Godot equivalent: `Transform2D.scaled()`_
     #[must_use]
-    pub fn scaled(self, scale: Vector3) -> Self {
+    pub fn scaled(&self, scale: Vector3) -> Self {
         Self {
             basis: Basis::from_scale(scale) * self.basis,
             origin: self.origin * scale,
@@ -230,7 +228,7 @@ impl Transform3D {
     ///
     /// _Godot equivalent: `Transform2D.scaled_local()`_
     #[must_use]
-    pub fn scaled_local(self, scale: Vector3) -> Self {
+    pub fn scaled_local(&self, scale: Vector3) -> Self {
         Self {
             basis: self.basis * Basis::from_scale(scale),
             origin: self.origin,
@@ -244,7 +242,7 @@ impl Transform3D {
     ///
     /// _Godot equivalent: `Transform2D.translated()`_
     #[must_use]
-    pub fn translated(self, offset: Vector3) -> Self {
+    pub fn translated(&self, offset: Vector3) -> Self {
         Self {
             basis: self.basis,
             origin: self.origin + offset,
@@ -258,7 +256,7 @@ impl Transform3D {
     ///
     /// _Godot equivalent: `Transform2D.translated()`_
     #[must_use]
-    pub fn translated_local(self, offset: Vector3) -> Self {
+    pub fn translated_local(&self, offset: Vector3) -> Self {
         Self {
             basis: self.basis,
             origin: self.origin + (self.basis * offset),
@@ -386,13 +384,13 @@ impl GlamConv for Transform3D {
 // This type is represented as `Self` in Godot, so `*mut Self` is sound.
 unsafe impl GodotFfi for Transform3D {
     fn variant_type() -> sys::VariantType {
-        sys::VariantType::Transform3D
+        sys::VariantType::TRANSFORM3D
     }
 
     ffi_methods! { type sys::GDExtensionTypePtr = *mut Self; .. }
 }
 
-impl_godot_as_self!(Transform3D);
+crate::meta::impl_godot_as_self!(Transform3D);
 
 #[cfg(test)]
 mod test {

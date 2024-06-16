@@ -7,8 +7,8 @@
 
 use godot::builtin::inner::InnerBasis;
 use godot::builtin::math::assert_eq_approx;
-use godot::builtin::meta::ToGodot;
 use godot::builtin::{real, Basis, EulerOrder, RealConv, VariantOperator, Vector3};
+use godot::meta::ToGodot;
 
 use crate::framework::itest;
 
@@ -23,7 +23,7 @@ fn basis_multiply_same() {
     let rust_res = TEST_BASIS * Basis::IDENTITY;
     let godot_res = TEST_BASIS
         .to_variant()
-        .evaluate(&Basis::IDENTITY.to_variant(), VariantOperator::Multiply)
+        .evaluate(&Basis::IDENTITY.to_variant(), VariantOperator::MULTIPLY)
         .unwrap()
         .to::<Basis>();
     assert_eq_approx!(rust_res, godot_res);
@@ -32,7 +32,7 @@ fn basis_multiply_same() {
     let rust_res = TEST_BASIS * rhs;
     let godot_res = TEST_BASIS
         .to_variant()
-        .evaluate(&rhs.to_variant(), VariantOperator::Multiply)
+        .evaluate(&rhs.to_variant(), VariantOperator::MULTIPLY)
         .unwrap()
         .to::<Basis>();
     assert_eq_approx!(rust_res, godot_res);
@@ -122,12 +122,12 @@ fn basis_equiv() {
 
     #[rustfmt::skip]
     let mappings_basis = [
-        ("inverse",         inner.inverse(),                      outer.inverse()                     ),
-        ("transposed",      inner.transposed(),                   outer.transposed()                  ),
-        ("orthonormalized", inner.orthonormalized(),              outer.orthonormalized()             ),
-        ("rotated",         inner.rotated(vec.normalized(), 0.1), outer.rotated(vec.normalized(), 0.1)),
-        ("scaled",          inner.scaled(vec),                    outer.scaled(vec)                   ),
-        ("slerp",           inner.slerp(Basis::IDENTITY, 0.5),    outer.slerp(Basis::IDENTITY, 0.5)   ),
+        ("inverse",         inner.inverse(),                      outer.inverse()                      ),
+        ("transposed",      inner.transposed(),                   outer.transposed()                   ),
+        ("orthonormalized", inner.orthonormalized(),              outer.orthonormalized()              ),
+        ("rotated",         inner.rotated(vec.normalized(), 0.1), outer.rotated(vec.normalized(), 0.1) ),
+        ("scaled",          inner.scaled(vec),                    outer.scaled(vec)                    ),
+        ("slerp",           inner.slerp(Basis::IDENTITY, 0.5),    outer.slerp(&Basis::IDENTITY, 0.5)   ),
     ];
     for (name, inner, outer) in mappings_basis {
         assert_eq_approx!(inner, outer, "function: {name}\n");

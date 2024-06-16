@@ -89,14 +89,14 @@ pub fn make_property_impl(class_name: &Ident, fields: &Fields) -> TokenStream {
 
         let usage_flags = match usage_flags {
             UsageFlags::Inferred => {
-                quote! { ::godot::engine::global::PropertyUsageFlags::NONE }
+                quote! { ::godot::global::PropertyUsageFlags::NONE }
             }
             UsageFlags::InferredExport => {
-                quote! { ::godot::engine::global::PropertyUsageFlags::DEFAULT }
+                quote! { ::godot::global::PropertyUsageFlags::DEFAULT }
             }
             UsageFlags::Custom(flags) => quote! {
                 #(
-                    ::godot::engine::global::PropertyUsageFlags::#flags
+                    ::godot::global::PropertyUsageFlags::#flags
                 )|*
             },
         };
@@ -135,14 +135,14 @@ pub fn make_property_impl(class_name: &Ident, fields: &Fields) -> TokenStream {
 
                 quote! {
                     (
-                        ::godot::engine::global::PropertyHint::#hint,
+                        ::godot::global::PropertyHint::#hint,
                         #hint_string
                     )
                 }
             }
             FieldHint::HintWithString { hint, hint_string } => quote! {
                 (
-                    ::godot::engine::global::PropertyHint::#hint,
+                    ::godot::global::PropertyHint::#hint,
                     ::godot::builtin::GString::from(#hint_string)
                 )
             },
@@ -165,7 +165,7 @@ pub fn make_property_impl(class_name: &Ident, fields: &Fields) -> TokenStream {
             let (hint, hint_string) = #hint;
             let usage = #usage_flags;
 
-            let property_info = ::godot::builtin::meta::PropertyInfo {
+            let property_info = ::godot::meta::PropertyInfo {
                 variant_type: #field_variant_type,
                 class_name: #field_class_name,
                 property_name: #field_name.into(),

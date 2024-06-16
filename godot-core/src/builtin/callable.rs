@@ -8,9 +8,9 @@
 use godot_ffi as sys;
 use godot_macros::impl_callable;
 
-use crate::builtin::meta::{impl_godot_as_self, GodotType, ToGodot};
 use crate::builtin::{inner, StringName, Variant, VariantArray};
-use crate::engine::Object;
+use crate::classes::Object;
+use crate::meta::{GodotType, ToGodot};
 use crate::obj::bounds::DynMemory;
 use crate::obj::Bounds;
 use crate::obj::{Gd, GodotClass, InstanceId};
@@ -292,7 +292,7 @@ impl_builtin_traits! {
 // beyond what is done in `from_opaque` and `drop`. So using `*mut Opaque` is safe.
 unsafe impl GodotFfi for Callable {
     fn variant_type() -> sys::VariantType {
-        sys::VariantType::Callable
+        sys::VariantType::CALLABLE
     }
 
     ffi_methods! { type sys::GDExtensionTypePtr = *mut Opaque;
@@ -311,7 +311,7 @@ unsafe impl GodotFfi for Callable {
     }
 }
 
-impl_godot_as_self!(Callable);
+crate::meta::impl_godot_as_self!(Callable);
 
 impl fmt::Debug for Callable {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -392,7 +392,7 @@ mod custom_callable {
         let c: &mut C = CallableUserdata::inner_from_raw(callable_userdata);
 
         let result = c.invoke(arg_refs);
-        crate::builtin::meta::varcall_return_checked(result, r_return, r_error);
+        crate::meta::varcall_return_checked(result, r_return, r_error);
     }
 
     pub unsafe extern "C" fn rust_callable_call_fn<F>(
@@ -409,7 +409,7 @@ mod custom_callable {
         let w: &mut FnWrapper<F> = CallableUserdata::inner_from_raw(callable_userdata);
 
         let result = (w.rust_function)(arg_refs);
-        crate::builtin::meta::varcall_return_checked(result, r_return, r_error);
+        crate::meta::varcall_return_checked(result, r_return, r_error);
     }
 
     pub unsafe extern "C" fn rust_callable_destroy<T>(callable_userdata: *mut std::ffi::c_void) {
@@ -433,7 +433,7 @@ mod custom_callable {
         let a: &T = CallableUserdata::inner_from_raw(callable_userdata_a);
         let b: &T = CallableUserdata::inner_from_raw(callable_userdata_b);
 
-        (a == b) as sys::GDExtensionBool
+        sys::conv::bool_to_sys(a == b)
     }
 
     pub unsafe extern "C" fn rust_callable_to_string_display<T: fmt::Display>(
@@ -445,7 +445,7 @@ mod custom_callable {
         let s = crate::builtin::GString::from(c.to_string());
 
         s.move_into_string_ptr(r_out);
-        *r_is_valid = true as sys::GDExtensionBool;
+        *r_is_valid = sys::conv::SYS_TRUE;
     }
 
     pub unsafe extern "C" fn rust_callable_to_string_named<F>(
@@ -456,7 +456,7 @@ mod custom_callable {
         let w: &mut FnWrapper<F> = CallableUserdata::inner_from_raw(callable_userdata);
 
         w.name.clone().move_into_string_ptr(r_out);
-        *r_is_valid = true as sys::GDExtensionBool;
+        *r_is_valid = sys::conv::SYS_TRUE;
     }
 }
 

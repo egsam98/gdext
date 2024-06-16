@@ -160,6 +160,7 @@ pub struct Class {
     pub common: ClassCommons,
     pub is_refcounted: bool,
     pub is_instantiable: bool,
+    pub is_experimental: bool,
     pub inherits: Option<String>,
     pub api_level: ClassCodegenLevel,
     pub constants: Vec<ClassConstant>,
@@ -559,7 +560,7 @@ impl FnReturn {
 
     pub fn call_result_decl(&self) -> TokenStream {
         let ret = self.type_tokens();
-        quote! { -> Result<#ret, crate::builtin::meta::CallError> }
+        quote! { -> Result<#ret, crate::meta::error::CallError> }
     }
 }
 

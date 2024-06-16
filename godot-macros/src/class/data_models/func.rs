@@ -12,8 +12,6 @@ use quote::{format_ident, quote};
 
 /// Information used for registering a Rust function with Godot.
 pub struct FuncDefinition {
-    /// Raw information about the Rust function.
-    pub signature: venial::Function,
     /// Refined signature, with higher level info and renamed parameters.
     pub signature_info: SignatureInfo,
     /// The function's non-gdext attributes (all except #[func]).
@@ -21,7 +19,6 @@ pub struct FuncDefinition {
     /// The name the function will be exposed as in Godot. If `None`, the Rust function name is used.
     pub rename: Option<String>,
     pub is_script_virtual: bool,
-    pub has_gd_self: bool,
 }
 
 /// Returns a C function which acts as the callback when a virtual method of this instance is invoked.
@@ -108,7 +105,7 @@ pub fn make_method_registration(
         #(#cfg_attrs)*
         {
             use ::godot::obj::GodotClass;
-            use ::godot::builtin::meta::registration::method::ClassMethodInfo;
+            use ::godot::register::private::method::ClassMethodInfo;
             use ::godot::builtin::{StringName, Variant};
             use ::godot::sys;
 
@@ -379,7 +376,7 @@ fn make_method_flags(
     method_type: ReceiverType,
     is_script_virtual: bool,
 ) -> Result<TokenStream, String> {
-    let flags = quote! { ::godot::engine::global::MethodFlags };
+    let flags = quote! { ::godot::global::MethodFlags };
 
     let base_flags = match method_type {
         ReceiverType::Ref => {
@@ -465,7 +462,7 @@ fn make_ptrcall_invocation(wrapped_method: &TokenStream, is_virtual: bool) -> To
     };
 
     quote! {
-         <Sig as ::godot::builtin::meta::PtrcallSignatureTuple>::in_ptrcall(
+         <Sig as ::godot::meta::PtrcallSignatureTuple>::in_ptrcall(
             instance_ptr,
             &call_ctx,
             args_ptr,
@@ -479,7 +476,7 @@ fn make_ptrcall_invocation(wrapped_method: &TokenStream, is_virtual: bool) -> To
 /// Generate code for a `varcall()` call expression.
 fn make_varcall_invocation(wrapped_method: &TokenStream) -> TokenStream {
     quote! {
-        <Sig as ::godot::builtin::meta::VarcallSignatureTuple>::in_varcall(
+        <Sig as ::godot::meta::VarcallSignatureTuple>::in_varcall(
             instance_ptr,
             &call_ctx,
             args_ptr,
@@ -493,6 +490,6 @@ fn make_varcall_invocation(wrapped_method: &TokenStream) -> TokenStream {
 
 fn make_call_context(class_name_str: &str, method_name_str: &str) -> TokenStream {
     quote! {
-        ::godot::builtin::meta::CallContext::func(#class_name_str, #method_name_str)
+        ::godot::meta::CallContext::func(#class_name_str, #method_name_str)
     }
 }
