@@ -903,13 +903,16 @@ pub fn impl_callable(tokens: TokenStream) -> TokenStream {
         impl <Recv: crate::obj::WithBaseField + 'static, #(#args_ty: crate::builtin::meta::FromGodot + 'static,)*> From<#type_name<Recv, #(#args_ty,)*>> for Callable {
             fn from(value: #type_name<Recv, #(#args_ty,)*>) -> Self {
                 Callable::from_fn(stringify!(#type_name), move |args| {
+                    let Ok(gd) = Gd::try_from_instance_id(args.last().unwrap().to::<InstanceId>) else {
+                        return;
+                    };
                     (value.f)(
-                        &mut *args.last().unwrap().to::<Gd<Recv>>().bind_mut(),
+                        &mut gd.bind_mut(),
                         #(#call_args,)*
                     );
                     Ok(().to_variant())
                 })
-                .bindv(crate::builtin::Array::from_iter([value.recv.to_variant()]))
+                .bindv(crate::builtin::Array::from_iter([value.recv.instance_id().to_variant()]))
             }
         }
     }.into()
