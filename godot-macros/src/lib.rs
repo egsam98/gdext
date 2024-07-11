@@ -888,7 +888,7 @@ pub fn impl_callable(tokens: TokenStream) -> TokenStream {
         })
         .collect::<Vec<_>>();
 
-    quote! {
+    let out = quote! {
         pub struct #type_name<Recv: crate::obj::WithBaseField, #(#args_ty: crate::builtin::meta::FromGodot,)*> {
             recv: Gd<Recv>,
             f: Box<dyn Fn(&mut Recv, #(#args_ty,)*) -> () + Send + Sync>,
@@ -912,5 +912,6 @@ pub fn impl_callable(tokens: TokenStream) -> TokenStream {
                 .bindv(crate::builtin::Array::from_iter([value.recv.instance_id().to_variant()]))
             }
         }
-    }.into()
+    };
+    out.into()
 }

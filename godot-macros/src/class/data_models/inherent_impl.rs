@@ -84,8 +84,10 @@ pub fn transform_inherent_impl(mut impl_block: venial::Impl) -> ParseResult<Toke
                 self.base_mut().emit_signal(#sig_name.into(), &[#(#args_name.to_variant(),)*]);
             }
 
-            pub fn #func_connect_name<Recv: godot::obj::WithBaseField>(&mut self, cb: #callable) {
-                self.base_mut().connect(#sig_name.into(), cb.into());
+            pub fn #func_connect_name<Recv: godot::obj::WithBaseField + Inherits<Object>>(&mut self, cb: #callable) -> SignalHandle {
+                let callable = Callable::from(cb);
+                self.base_mut().connect(#sig_name.into(), callable.clone());
+                SignalHandle::new(self.base().instance_id(), #sig_name.into(), callable)
             }
         }
     });

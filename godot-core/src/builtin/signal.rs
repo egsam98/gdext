@@ -9,14 +9,14 @@ use std::fmt;
 use std::ptr;
 
 use godot_ffi as sys;
+use sys::{ffi_methods, GodotFfi};
 
-use crate::builtin::{inner, Array, Callable, Dictionary, StringName, Variant};
+use crate::builtin::{Array, Callable, Dictionary, inner, StringName, Variant};
 use crate::classes::Object;
 use crate::global::Error;
 use crate::meta::{FromGodot, GodotType, ToGodot};
-use crate::obj::bounds::DynMemory;
 use crate::obj::{Bounds, Gd, GodotClass, InstanceId};
-use sys::{ffi_methods, GodotFfi};
+use crate::obj::bounds::DynMemory;
 
 /// A `Signal` represents a signal of an Object instance in Godot.
 ///
@@ -202,5 +202,23 @@ impl fmt::Debug for Signal {
 impl fmt::Display for Signal {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.to_variant())
+    }
+}
+
+pub struct SignalHandle {
+    id: InstanceId,
+    name: StringName,
+    cb: Callable,
+}
+
+impl SignalHandle {
+    pub fn new(id: InstanceId, name: StringName, cb: Callable) -> Self {
+        Self { id, name, cb }
+    }
+
+    pub fn disconnect(&mut self) {
+        if let Ok(mut obj) = Gd::<Object>::try_from_instance_id(self.id) {
+            obj.disconnect(self.name.clone(), self.cb.clone());
+        };
     }
 }
