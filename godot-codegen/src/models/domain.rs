@@ -473,7 +473,11 @@ impl FnQualifier {
 
 pub struct FnParam {
     pub name: Ident,
+
+    /// Type, as it appears in `type CallSig` tuple definition.
     pub type_: RustTy,
+
+    /// Rust expression for default value, if available.
     pub default_value: Option<TokenStream>,
 }
 
@@ -510,6 +514,7 @@ impl FnParam {
         }
     }
 
+    /// `impl AsObjectArg<T>` for object parameters. Only set if requested and `T` is an engine class.
     pub fn new_no_defaults(method_arg: &JsonMethodArg, ctx: &mut Context) -> FnParam {
         FnParam {
             name: safe_ident(&method_arg.name),
@@ -573,15 +578,6 @@ pub struct GodotTy {
     pub meta: Option<String>,
 }
 
-// impl GodotTy {
-//     fn new<'a>(ty: &'a String, meta: &'a Option<String>) -> Self {
-//         Self {
-//             ty: ty.clone(),
-//             meta: meta.clone(),
-//         }
-//     }
-// }
-
 // ----------------------------------------------------------------------------------------------------------------------------------------------
 // Rust type
 
@@ -621,15 +617,42 @@ pub enum RustTy {
 
     /// `Gd<Node>`
     EngineClass {
-        /// Tokens with full `Gd<T>`
+        /// Tokens with full `Gd<T>` (e.g. used in return type position).
         tokens: TokenStream,
+
+        /// Tokens with `ObjectArg<T>` (used in `type CallSig` tuple types).
+        object_arg: TokenStream,
+
+        /// Signature declaration with `impl AsObjectArg<T>`.
+        impl_as_object_arg: TokenStream,
+
         /// only inner `T`
         #[allow(dead_code)] // only read in minimal config
         inner_class: Ident,
     },
+
+    /// Receiver type of default parameters extender constructor.
+    ExtenderReceiver { tokens: TokenStream },
 }
 
 impl RustTy {
+    pub fn param_decl(&self) -> TokenStream {
+        match self {
+            RustTy::EngineClass {
+                impl_as_object_arg, ..
+            } => impl_as_object_arg.clone(),
+            other => other.to_token_stream(),
+        }
+    }
+
+    /// Returns `( <field tokens>, <needs .as_object_arg()> )`.
+    pub fn private_field_decl(&self) -> (TokenStream, bool) {
+        match self {
+            RustTy::EngineClass { object_arg, .. } => (object_arg.clone(), true),
+            other => (other.to_token_stream(), false),
+        }
+    }
+
     pub fn return_decl(&self) -> TokenStream {
         match self {
             Self::EngineClass { tokens, .. } => quote! { -> Option<#tokens> },
@@ -655,6 +678,7 @@ impl ToTokens for RustTy {
             RustTy::EngineEnum { tokens: path, .. } => path.to_tokens(tokens),
             RustTy::EngineBitfield { tokens: path, .. } => path.to_tokens(tokens),
             RustTy::EngineClass { tokens: path, .. } => path.to_tokens(tokens),
+            RustTy::ExtenderReceiver { tokens: path } => path.to_tokens(tokens),
         }
     }
 }

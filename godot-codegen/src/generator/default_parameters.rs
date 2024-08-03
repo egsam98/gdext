@@ -48,8 +48,13 @@ pub fn make_function_definition_with_defaults(
 
     let receiver_param = &code.receiver.param;
     let receiver_self = &code.receiver.self_prefix;
-    let (required_params, required_args) =
-        functions_common::make_params_and_args(&required_fn_params);
+
+    let [required_params_impl_asarg, _, required_args_asarg] =
+        functions_common::make_params_exprs(required_fn_params.iter().cloned(), false, true, true);
+
+    let [required_params_plain, _, required_args_internal] =
+        functions_common::make_params_exprs(required_fn_params.into_iter(), false, false, false);
+
     let return_decl = &sig.return_value().decl;
 
     // Technically, the builder would not need a lifetime -- it could just maintain an `object_ptr` copy.
@@ -59,7 +64,7 @@ pub fn make_function_definition_with_defaults(
     // #[allow] exceptions:
     // - wrong_self_convention:     to_*() and from_*() are taken from Godot
     // - redundant_field_names:     'value: value' is a possible initialization pattern
-    // - needless-update:           '..self' has nothing left to change
+    // - needless-update:           Remainder expression '..self' has nothing left to change
     let builders = quote! {
         #[doc = #builder_doc]
         #[must_use]
@@ -73,7 +78,7 @@ pub fn make_function_definition_with_defaults(
         impl #builder_lifetime #builder_ty #builder_lifetime {
             fn new(
                 #object_param
-                #( #required_params, )*
+                #( #required_params_plain, )*
             ) -> Self {
                 Self {
                     #( #builder_inits, )*
@@ -95,21 +100,21 @@ pub fn make_function_definition_with_defaults(
         #[inline]
         #vis fn #simple_fn_name(
             #receiver_param
-            #( #required_params, )*
+            #( #required_params_impl_asarg, )*
         ) #return_decl {
             #receiver_self #extended_fn_name(
-                #( #required_args, )*
+                #( #required_args_internal, )*
             ).done()
         }
 
         #[inline]
         #vis fn #extended_fn_name(
             #receiver_param
-            #( #required_params, )*
+            #( #required_params_impl_asarg, )*
         ) -> #builder_ty #builder_anon_lifetime {
             #builder_ty::new(
                 #object_arg
-                #( #required_args, )*
+                #( #required_args_asarg, )*
             )
         }
     };
@@ -191,10 +196,8 @@ fn make_extender_receiver(sig: &dyn Function) -> ExtenderReceiver {
             ExtenderReceiver {
                 object_fn_param: Some(FnParam {
                     name: ident("surround_object"),
-                    // Not exactly EngineClass, but close enough
-                    type_: RustTy::EngineClass {
+                    type_: RustTy::ExtenderReceiver {
                         tokens: quote! { &'a #builder_mut re_export::#class },
-                        inner_class: ident("unknown"),
                     },
                     default_value: None,
                 }),
@@ -244,27 +247,33 @@ fn make_extender(
             default_value,
         } = param;
 
+        let (field_type, needs_conversion) = type_.private_field_decl();
+
         // Initialize with default parameters where available, forward constructor args otherwise
         let init = if let Some(value) = default_value {
-            quote! { #name: #value }
+            make_field_init(name, value, needs_conversion)
         } else {
             quote! { #name }
         };
 
-        result.builder_fields.push(quote! { #name: #type_ });
+        result.builder_fields.push(quote! { #name: #field_type });
         result.builder_args.push(quote! { self.#name });
         result.builder_inits.push(init);
     }
 
     for param in default_fn_params {
         let FnParam { name, type_, .. } = param;
+        let param_type = type_.param_decl();
+        let (_, field_needs_conversion) = type_.private_field_decl();
+
+        let field_init = make_field_init(name, &quote! { value }, field_needs_conversion);
 
         let method = quote! {
             #[inline]
-            pub fn #name(self, value: #type_) -> Self {
+            pub fn #name(self, value: #param_type) -> Self {
                 // Currently not testing whether the parameter was already set
                 Self {
-                    #name: value,
+                    #field_init,
                     ..self
                 }
             }
@@ -274,4 +283,12 @@ fn make_extender(
     }
 
     result
+}
+
+fn make_field_init(name: &Ident, expr: &TokenStream, needs_conversion: bool) -> TokenStream {
+    if needs_conversion {
+        quote! { #name: #expr.as_object_arg() }
+    } else {
+        quote! { #name: #expr }
+    }
 }

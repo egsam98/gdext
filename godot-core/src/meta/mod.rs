@@ -6,6 +6,33 @@
  */
 
 //! Meta-information about variant types, properties and class names.
+//!
+//! # Conversions between types
+//!
+//! ## Godot representation
+//!
+//! The library provides two traits [`FromGodot`] and [`ToGodot`], which are used at the Rust <-> Godot boundary, both in user-defined functions
+//! ([`#[func]`](../register/attr.godot_api.html#user-defined-functions)) and engine APIs ([`godot::classes` module](crate::classes)).
+//! Their `to_godot()` and `from_godot()` methods convert types from/to their _closest possible Godot type_ (e.g. `GString` instead of Rust
+//! `String`). You usually don't need to call these methods yourself, they are automatically invoked when passing objects to/from Godot.
+//!
+//! Most often, the two traits appear in pairs, however there are cases where only one of the two is implemented. For example, `&str` implements
+//! `ToGodot` but not `FromGodot`. Additionally, [`GodotConvert`] acts as a supertrait of both [`FromGodot`] and [`ToGodot`]. Its sole purpose
+//! is to define the "closest possible Godot type" [`GodotConvert::Via`].
+//!
+//! For fallible conversions, you can use [`FromGodot::try_from_godot()`].
+//!
+//! ## Variants
+//!
+//! [`ToGodot`] and [`FromGodot`] also implement a conversion to/from [`Variant`], which is the most versatile Godot type. This conversion is
+//! available via `to_variant()` and `from_variant()` methods. These methods are also available directly on `Variant` itself, via `to()`,
+//! `try_to()` and `from()` functions.
+//!
+//! ## Class conversions
+//!
+//! Godot classes exist in a hierarchy. In OOP, it is usually possible to represent pointers to derived objects as pointer to their bases.
+//! For conversions between base and derived class objects, you can use `Gd` methods [`cast()`][crate::obj::Gd::cast],
+//! [`try_cast()`][crate::obj::Gd::try_cast] and [`upcast()`][crate::obj::Gd::upcast]. Upcasts are infallible.
 
 mod array_type_info;
 mod class_name;
@@ -216,7 +243,7 @@ impl PropertyInfo {
     pub(crate) unsafe fn free_owned_property_sys(info: sys::GDExtensionPropertyInfo) {
         // SAFETY: This function was called on a pointer returned from `into_owned_property_sys`, thus both `info.name` and
         // `info.hint_string` were created from calls to `into_owned_string_sys` on their respective types.
-        // Additionally this function isn't called more than once on a struct containing the same `name` or `hint_string` pointers.
+        // Additionally, this function isn't called more than once on a struct containing the same `name` or `hint_string` pointers.
         unsafe {
             let _name = StringName::from_owned_string_sys(info.name);
             let _hint_string = GString::from_owned_string_sys(info.hint_string);
@@ -356,4 +383,12 @@ impl MethodInfo {
             let _variant = unsafe { Variant::from_owned_var_sys(*variant) };
         }
     }
+}
+
+/// Clean up various resources at end of usage.
+///
+/// # Safety
+/// Must not use meta facilities (e.g. `ClassName`) after this call.
+pub(crate) unsafe fn cleanup() {
+    class_name::cleanup();
 }
