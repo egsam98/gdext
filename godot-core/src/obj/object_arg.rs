@@ -39,7 +39,7 @@ where
     U: Inherits<T>,
 {
     fn as_object_arg(&self) -> ObjectArg<T> {
-        <&Gd<U>>::as_object_arg(&self)
+        <&Gd<U>>::as_object_arg(self)
     }
 }
 
