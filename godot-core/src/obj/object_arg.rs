@@ -33,16 +33,6 @@ where
     fn as_object_arg(&self) -> ObjectArg<T>;
 }
 
-impl<T, U> AsObjectArg<T> for Gd<U>
-where
-    T: GodotClass + Bounds<Declarer = bounds::DeclEngine>,
-    U: Inherits<T>,
-{
-    fn as_object_arg(&self) -> ObjectArg<T> {
-        unsafe { ObjectArg::from_raw_gd(&self.clone().raw) }
-    }
-}
-
 impl<T, U> AsObjectArg<T> for &Gd<U>
 where
     T: GodotClass + Bounds<Declarer = bounds::DeclEngine>,
