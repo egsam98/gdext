@@ -39,7 +39,7 @@ where
     U: Inherits<T>,
 {
     fn as_object_arg(&self) -> ObjectArg<T> {
-        unsafe { ObjectArg::from_raw_gd(&self.raw) }
+        unsafe { ObjectArg::from_raw_gd(&self.raw.clone()) }
     }
 }
 
