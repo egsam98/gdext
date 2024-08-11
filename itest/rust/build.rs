@@ -414,27 +414,27 @@ fn generate_property_template(inputs: &[Input]) -> PropertyTests {
             continue;
         }
 
-        let property = format_ident!("property_{ident}");
-        let property_array = format_ident!("property_array_{ident}");
+        let var = format_ident!("var_{ident}");
+        let var_array = format_ident!("var_array_{ident}");
         let export = format_ident!("export_{ident}");
         let export_array = format_ident!("export_array_{ident}");
 
         let initializer = initializer
             .as_ref()
-            .map(|init| quote! { #[init(default = #init)] });
+            .map(|init| quote! { #[init(val = #init)] });
 
         rust.extend([
             quote! {
                 #[var]
                 #initializer
-                #property: #rust_ty
+                #var: #rust_ty
             },
-            quote! { #[var] #property_array: Array<#rust_ty> },
+            quote! { #[var] #var_array: Array<#rust_ty> },
         ]);
 
         gdscript.extend([
-            format!("var {property}: {gdscript_ty}"),
-            format!("var {property_array}: Array[{gdscript_ty}]"),
+            format!("var {var}: {gdscript_ty}"),
+            format!("var {var_array}: Array[{gdscript_ty}]"),
         ]);
 
         if *is_exportable {

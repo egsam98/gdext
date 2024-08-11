@@ -75,6 +75,7 @@ pub fn derive_godot_class(item: venial::Item) -> ParseResult<TokenStream> {
     let mut create_fn = quote! { None };
     let mut recreate_fn = quote! { None };
     let mut is_instantiable = true;
+    let deprecations = &fields.deprecations;
 
     match struct_cfg.init_strategy {
         InitStrategy::Generated => {
@@ -129,6 +130,7 @@ pub fn derive_godot_class(item: venial::Item) -> ParseResult<TokenStream> {
             type Memory = <<Self as ::godot::obj::GodotClass>::Base as ::godot::obj::Bounds>::Memory;
             type DynMemory = <<Self as ::godot::obj::GodotClass>::Base as ::godot::obj::Bounds>::DynMemory;
             type Declarer = ::godot::obj::bounds::DeclUser;
+            type Exportable = <<Self as ::godot::obj::GodotClass>::Base as ::godot::obj::Bounds>::Exportable;
         }
 
         #godot_init_impl
@@ -136,6 +138,7 @@ pub fn derive_godot_class(item: venial::Item) -> ParseResult<TokenStream> {
         #godot_exports_impl
         #user_class_impl
         #init_expecter
+        #( #deprecations )*
 
         ::godot::sys::plugin_add!(__GODOT_PLUGIN_REGISTRY in #prv; #prv::ClassPlugin {
             class_name: #class_name_obj,
@@ -213,7 +216,7 @@ fn make_godot_init_impl(class_name: &Ident, fields: &Fields) -> TokenStream {
     let rest_init = fields.all_fields.iter().map(|field| {
         let field_name = field.name.clone();
         let value_expr = field
-            .default
+            .default_val
             .clone()
             .unwrap_or_else(|| quote! { ::std::default::Default::default() });
 
@@ -365,6 +368,8 @@ fn parse_struct_attributes(class: &venial::Struct) -> ParseResult<ClassAttribute
         parser.finish()?;
     }
 
+    post_validate(&base_ty, is_tool)?;
+
     Ok(ClassAttributes {
         base_ty,
         init_strategy,
@@ -398,6 +403,7 @@ fn parse_fields(
 ) -> ParseResult<Fields> {
     let mut all_fields = vec![];
     let mut base_field = Option::<Field>::None;
+    let mut deprecations = vec![];
 
     // Attributes on struct fields
     for (named_field, _punct) in named_fields {
@@ -424,9 +430,23 @@ fn parse_fields(
                 );
             }
 
-            // #[init(default = expr)]
+            // #[init(val = expr)]
+            if let Some(default) = parser.handle_expr("val")? {
+                field.default_val = Some(default);
+            }
+
+            // Deprecated #[init(default = expr)]
             if let Some(default) = parser.handle_expr("default")? {
-                field.default = Some(default);
+                if field.default_val.is_some() {
+                    return bail!(
+                        parser.span(),
+                        "Cannot use both `val` and `default` keys in #[init]; prefer using `val`"
+                    );
+                }
+                field.default_val = Some(default);
+                deprecations.push(quote! {
+                    ::godot::__deprecated::emit_deprecated_warning!(init_default);
+                })
             }
 
             // #[init(node = "NodePath")]
@@ -436,22 +456,22 @@ fn parse_fields(
                         parser.span(),
                         "The key `node` in attribute #[init] requires field of type `OnReady<T>`\n\
 				         Help: The syntax #[init(node = \"NodePath\")] is equivalent to \
-				         #[init(default = OnReady::node(\"NodePath\"))], \
+				         #[init(val = OnReady::node(\"NodePath\"))], \
 				         which can only be assigned to fields of type `OnReady<T>`"
                     );
                 }
 
-                if field.default.is_some() {
+                if field.default_val.is_some() {
                     return bail!(
 				        parser.span(),
 				        "The key `node` in attribute #[init] is mutually exclusive with the key `default`\n\
 				         Help: The syntax #[init(node = \"NodePath\")] is equivalent to \
-				         #[init(default = OnReady::node(\"NodePath\"))], \
+				         #[init(val = OnReady::node(\"NodePath\"))], \
 				         both aren't allowed since they would override each other"
 			        );
                 }
 
-                field.default = Some(quote! {
+                field.default_val = Some(quote! {
                     OnReady::node(#node_path)
                 });
             }
@@ -490,7 +510,7 @@ fn parse_fields(
             if field.is_onready
                 || field.var.is_some()
                 || field.export.is_some()
-                || field.default.is_some()
+                || field.default_val.is_some()
             {
                 return bail!(
                     named_field,
@@ -515,6 +535,7 @@ fn parse_fields(
     Ok(Fields {
         all_fields,
         base_field,
+        deprecations,
     })
 }
 
@@ -536,5 +557,38 @@ fn handle_opposite_keys(
             parser.span(),
             "#[{attribute}] attribute keys `{key}` and `{antikey}` are mutually exclusive",
         ),
+    }
+}
+
+/// Checks more logical combinations of attributes.
+fn post_validate(base_ty: &Ident, is_tool: bool) -> ParseResult<()> {
+    // TODO: this should be delegated to either:
+    // a) the type system: have a trait IsTool which is implemented when #[class(tool)] is set.
+    //    Then, for certain base classes, require a tool bound (e.g. generate method `fn type_check<T: IsTool>()`).
+    //    This would also allow moving the logic to godot-codegen.
+    // b) a runtime check in class.rs > register_class_raw() and validate_class_constraints().
+
+    let is_extension = is_class_virtual_extension(&base_ty.to_string());
+    if is_extension && !is_tool {
+        return bail!(
+            base_ty,
+            "Base class `{}` is a virtual extension class, which runs in the editor and thus requires #[class(tool)].",
+            base_ty
+        );
+    }
+
+    Ok(())
+}
+
+/// Whether a class exists primarily for GDExtension to overload virtual methods.
+// See post_validate(). Should be moved to godot-codegen > special_cases.rs.
+fn is_class_virtual_extension(godot_class_name: &str) -> bool {
+    // Heuristic: suffix, with some exceptions.
+    // Generally, a rule might also be "there is another class without that suffix", however that doesn't apply to e.g. OpenXRAPIExtension.
+
+    match godot_class_name {
+        "GDExtension" => false,
+
+        _ => godot_class_name.ends_with("Extension"),
     }
 }
