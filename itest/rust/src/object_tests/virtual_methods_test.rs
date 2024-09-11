@@ -19,9 +19,9 @@ use godot::classes::resource_loader::CacheMode;
 #[cfg(feature = "codegen-full")]
 use godot::classes::Material;
 use godot::classes::{
-    BoxMesh, INode, INode2D, IPrimitiveMesh, IRefCounted, IResourceFormatLoader, IRigidBody2D,
-    InputEvent, InputEventAction, Node, Node2D, PrimitiveMesh, RefCounted, ResourceFormatLoader,
-    ResourceLoader, Viewport, Window,
+    BoxMesh, IEditorPlugin, INode, INode2D, IPrimitiveMesh, IRefCounted, IResourceFormatLoader,
+    IRigidBody2D, InputEvent, InputEventAction, Node, Node2D, Object, PrimitiveMesh, RefCounted,
+    ResourceFormatLoader, ResourceLoader, Viewport, Window,
 };
 use godot::meta::ToGodot;
 use godot::obj::{Base, Gd, NewAlloc, NewGd};
@@ -153,12 +153,12 @@ impl IPrimitiveMesh for VirtualReturnTest {
     fn surface_get_format(&self, _index: i32) -> u32 { unreachable!() }
     fn surface_get_primitive_type(&self, _index: i32) -> u32 { unreachable!() }
     #[cfg(feature = "codegen-full")]
-    fn surface_set_material(&mut self, _index: i32, _material: Gd<Material>) { unreachable!() }
+    fn surface_set_material(&mut self, _index: i32, _material: Option<Gd<Material>>) { unreachable!() }
     #[cfg(feature = "codegen-full")]
     fn surface_get_material(&self, _index: i32) -> Option<Gd<Material>> { unreachable!() }
     fn get_blend_shape_count(&self) -> i32 { unreachable!() }
     fn get_blend_shape_name(&self, _index: i32) -> StringName { unreachable!() }
-    fn set_blend_shape_name(&mut self, _index: i32, _namee: StringName) { unreachable!() }
+    fn set_blend_shape_name(&mut self, _index: i32, _name: StringName) { unreachable!() }
     fn get_aabb(&self) -> godot::prelude::Aabb { unreachable!() }
 }
 
@@ -188,7 +188,7 @@ struct FormatLoaderTest {
 
 impl FormatLoaderTest {
     fn resource_type() -> GString {
-        GString::from("foo")
+        GString::from("some_resource_type")
     }
 }
 
@@ -599,7 +599,7 @@ fn test_notifications() {
 fn test_get_called() {
     let obj = GetTest::new_gd();
     assert!(!obj.bind().get_called.get());
-    assert!(obj.get("foo".into()).is_nil());
+    assert!(obj.get("inexistent".into()).is_nil());
     assert!(obj.bind().get_called.get());
 
     let obj = GetTest::new_gd();
@@ -626,7 +626,7 @@ fn test_get_returns_correct() {
 fn test_set_called() {
     let mut obj = SetTest::new_gd();
     assert!(!obj.bind().set_called);
-    obj.set("foo".into(), Variant::nil());
+    obj.set("inexistent_property".into(), Variant::nil());
     assert!(obj.bind().set_called);
 
     let mut obj = SetTest::new_gd();
@@ -771,5 +771,27 @@ impl GetSetTest {
     #[func]
     fn get_real_always_get_100(&self) -> i64 {
         self.always_get_100
+    }
+}
+
+// ----------------------------------------------------------------------------------------------------------------------------------------------
+
+// There isn't a good way to test editor plugins, but we can at least declare one to ensure that the macro
+// compiles.
+#[derive(GodotClass)]
+#[class(no_init, base = EditorPlugin, tool)]
+struct CustomEditorPlugin;
+
+// Just override EditorPlugin::edit() to verify method is declared with Option<T>.
+// See https://github.com/godot-rust/gdext/issues/494.
+#[godot_api]
+impl IEditorPlugin for CustomEditorPlugin {
+    fn edit(&mut self, _object: Option<Gd<Object>>) {
+        // Do nothing.
+    }
+
+    // This parameter is non-null.
+    fn handles(&self, _object: Gd<Object>) -> bool {
+        true
     }
 }

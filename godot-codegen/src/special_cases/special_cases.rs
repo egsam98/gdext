@@ -28,6 +28,7 @@ use crate::models::domain::{Enum, RustTy, TyName};
 use crate::models::json::{JsonBuiltinMethod, JsonClassMethod, JsonUtilityFunction};
 use crate::special_cases::codegen_special_cases;
 use crate::Context;
+use proc_macro2::Ident;
 // Deliberately private -- all checks must go through `special_cases`.
 
 #[rustfmt::skip]
@@ -88,12 +89,12 @@ pub fn is_godot_type_deleted(godot_ty: &str) -> bool {
 
     // OpenXR has not been available for macOS before 4.2.
     // See e.g. https://github.com/GodotVR/godot-xr-tools/issues/479.
-    // OpenXR is also not available on iOS: https://github.com/godotengine/godot/blob/13ba673c42951fd7cfa6fd8a7f25ede7e9ad92bb/modules/openxr/config.py#L2
+    // OpenXR is also not available on iOS and Web: https://github.com/godotengine/godot/blob/13ba673c42951fd7cfa6fd8a7f25ede7e9ad92bb/modules/openxr/config.py#L2
     // Do not hardcode a list of OpenXR classes, as more may be added in future Godot versions; instead use prefix.
     if godot_ty.starts_with("OpenXR") {
         let target_os = std::env::var("CARGO_CFG_TARGET_OS");
         match target_os.as_deref() {
-            Ok("ios") => return true,
+            Ok("ios") | Ok("emscripten") => return true,
             Ok("macos") => {
                 #[cfg(before_api = "4.2")]
                 return true;
@@ -266,6 +267,44 @@ pub fn is_class_method_const(class_name: &TyName, godot_method: &JsonClassMethod
 
             None
         },
+    }
+}
+
+/// Currently only for virtual methods; checks if the specified parameter is required (non-null) and can be declared as `Gd<T>`
+/// instead of `Option<Gd<T>>`.
+pub fn is_class_method_param_required(
+    class_name: &TyName,
+    method_name: &str,
+    param: &Ident, // Don't use `&str` to avoid to_string() allocations for each check on call-site.
+) -> bool {
+    // Note: magically, it's enough if a base class method is declared here; it will be picked up by derived classes.
+
+    match (class_name.godot_ty.as_str(), method_name) {
+        // Nodes.
+        ("Node", "input") => true,
+        ("Node", "shortcut_input") => true,
+        ("Node", "unhandled_input") => true,
+        ("Node", "unhandled_key_input") => true,
+
+        // https://docs.godotengine.org/en/stable/classes/class_collisionobject2d.html#class-collisionobject2d-private-method-input-event
+        ("CollisionObject2D", "input_event") => true, // both parameters.
+
+        // UI.
+        ("Control", "gui_input") => true,
+
+        // Script instances.
+        ("ScriptExtension", "instance_create") => param == "for_object",
+        ("ScriptExtension", "placeholder_instance_create") => param == "for_object",
+        ("ScriptExtension", "inherits_script") => param == "script",
+        ("ScriptExtension", "instance_has") => param == "object",
+
+        // Editor.
+        ("EditorExportPlugin", "customize_resource") => param == "resource",
+        ("EditorExportPlugin", "customize_scene") => param == "scene",
+
+        ("EditorPlugin", "handles") => param == "object",
+
+        _ => false,
     }
 }
 
