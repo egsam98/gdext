@@ -209,9 +209,12 @@ impl<T: GodotClass> Gd<T> {
 
     /// ⚠️ Looks up the given instance ID and returns the associated object.
     ///
+    /// Corresponds to Godot's global function `instance_from_id()`.
+    ///
     /// # Panics
     /// If no such instance ID is registered, or if the dynamic type of the object behind that instance ID
     /// is not compatible with `T`.
+    #[doc(alias = "instance_from_id")]
     pub fn from_instance_id(instance_id: InstanceId) -> Self {
         Self::try_from_instance_id(instance_id).unwrap_or_else(|err| {
             panic!(
@@ -676,14 +679,11 @@ impl<T: GodotClass> GodotConvert for Gd<T> {
 }
 
 impl<T: GodotClass> ToGodot for Gd<T> {
-    fn to_godot(&self) -> Self::Via {
+    type ToVia<'v> = Gd<T>;
+
+    fn to_godot(&self) -> Self::ToVia<'_> {
         self.raw.check_rtti("to_godot");
         self.clone()
-    }
-
-    fn into_godot(self) -> Self::Via {
-        self.raw.check_rtti("into_godot");
-        self
     }
 }
 
