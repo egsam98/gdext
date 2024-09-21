@@ -940,7 +940,7 @@ pub fn impl_callable(tokens: TokenStream) -> TokenStream {
                     };
                     Ok(().to_variant())
                 })
-                .bindv(crate::builtin::Array::from_iter([value.recv.instance_id().to_variant()]))
+                .bindv(&crate::builtin::Array::from_iter([value.recv.instance_id().to_variant()]))
             }
         }
     };
