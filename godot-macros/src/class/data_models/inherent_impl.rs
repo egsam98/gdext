@@ -91,7 +91,10 @@ pub fn transform_inherent_impl(mut impl_block: venial::Impl) -> ParseResult<Toke
 
             pub fn #func_connect_name<Recv: godot::obj::WithBaseField + Inherits<Object>>(&mut self, cb: #callable) -> SignalHandle {
                 let callable = Callable::from(cb);
-                self.base_mut().connect(#sig_name.into(), callable.clone());
+                self.base_mut()
+                    .connect_ex(#sig_name.into(), callable.clone())
+                    .flags(godot::classes::object::ConnectFlags::DEFERRED.ord() as u32)
+                    .done();
                 SignalHandle::new(self.base().instance_id(), #sig_name.into(), callable)
             }
         }
