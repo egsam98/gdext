@@ -959,8 +959,8 @@ pub fn impl_callable(tokens: TokenStream) -> TokenStream {
         .collect::<Vec<_>>();
 
     let out = quote! {
-        pub struct #type_name<'a, Recv: crate::obj::WithBaseField, #(#args_ty: crate::meta::FromGodot,)*> {
-            pub name: &'a str,
+        pub struct #type_name<Recv: crate::obj::WithBaseField, #(#args_ty: crate::meta::FromGodot,)*> {
+            pub name: String,
             pub recv: Gd<Recv>,
             pub f: Box<dyn Fn(&mut Recv, #(#args_ty,)*) -> () + Send + Sync>,
         }
@@ -969,7 +969,7 @@ pub fn impl_callable(tokens: TokenStream) -> TokenStream {
         macro_rules! #macro_name {
             ($recv:expr, $func:expr) => {
                 #type_name {
-                    name: stringify!($func),
+                    name: format!("{}: {}", file!(), stringify!($func)),
                     recv: $recv,
                     f: Box::new($func),
                 }
@@ -978,17 +978,7 @@ pub fn impl_callable(tokens: TokenStream) -> TokenStream {
 
         pub use #macro_name;
 
-        impl <'a, Recv: crate::obj::WithBaseField, #(#args_ty: crate::meta::FromGodot,)*> #type_name<'a, Recv, #(#args_ty,)*> {
-            pub fn new(recv: Gd<Recv>, f: impl Fn(&mut Recv, #(#args_ty,)*) -> () + Send + Sync + 'static) -> Self {
-                Self {
-                    name: stringify!(f),
-                    recv,
-                    f: Box::new(f),
-                }
-            }
-        }
-
-        impl <'a, Recv: crate::obj::WithBaseField + 'static, #(#args_ty: crate::meta::FromGodot + 'static,)*> From<#type_name<'a, Recv, #(#args_ty,)*>> for Callable {
+        impl <Recv: crate::obj::WithBaseField + 'static, #(#args_ty: crate::meta::FromGodot + 'static,)*> From<#type_name<Recv, #(#args_ty,)*>> for Callable {
             fn from(value: #type_name<Recv, #(#args_ty,)*>) -> Self {
                 Callable::from_fn(value.name, move |args| {
                     let id = args.last().unwrap().to::<InstanceId>();
