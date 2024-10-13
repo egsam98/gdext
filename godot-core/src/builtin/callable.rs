@@ -489,6 +489,7 @@ impl_callable!(3);
 impl_callable!(4);
 impl_callable!(5);
 
+#[macro_export]
 macro_rules! callable0 {
     ($recv:ident, $func:expr) => {
         Callable0 {
@@ -499,4 +500,4 @@ macro_rules! callable0 {
     };
 }
 
-pub use callable0;
+// pub use callable0;
