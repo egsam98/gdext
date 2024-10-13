@@ -947,6 +947,7 @@ pub fn impl_callable(tokens: TokenStream) -> TokenStream {
     let n = tokens.to_string().parse::<usize>().unwrap();
     let mut call_args = Vec::new();
     let type_name = format_ident!("Callable{}", n);
+    let macro_name = format_ident!("callable{}", n);
     let args_ty = (0..n)
         .map(|i| {
             let gen_type = format_ident!("T{}", i);
@@ -959,10 +960,22 @@ pub fn impl_callable(tokens: TokenStream) -> TokenStream {
 
     let out = quote! {
         pub struct #type_name<'a, Recv: crate::obj::WithBaseField, #(#args_ty: crate::meta::FromGodot,)*> {
-            name: &'a str,
-            recv: Gd<Recv>,
-            f: Box<dyn Fn(&mut Recv, #(#args_ty,)*) -> () + Send + Sync>,
+            pub name: &'a str,
+            pub recv: Gd<Recv>,
+            pub f: Box<dyn Fn(&mut Recv, #(#args_ty,)*) -> () + Send + Sync>,
         }
+
+        macro_rules! #macro_name {
+            ($recv:ident, $func:expr) => {
+                #type_name {
+                    name: stringify!(func),
+                    recv: $recv,
+                    f: Box::new($func),
+                }
+            };
+        }
+
+        pub(crate) use #macro_name;
 
         impl <'a, Recv: crate::obj::WithBaseField, #(#args_ty: crate::meta::FromGodot,)*> #type_name<'a, Recv, #(#args_ty,)*> {
             pub fn new(recv: Gd<Recv>, f: impl Fn(&mut Recv, #(#args_ty,)*) -> () + Send + Sync + 'static) -> Self {
