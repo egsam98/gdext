@@ -975,7 +975,7 @@ pub fn impl_callable(tokens: TokenStream) -> TokenStream {
             };
         }
 
-        pub(crate) use #macro_name;
+        pub use #macro_name;
 
         impl <'a, Recv: crate::obj::WithBaseField, #(#args_ty: crate::meta::FromGodot,)*> #type_name<'a, Recv, #(#args_ty,)*> {
             pub fn new(recv: Gd<Recv>, f: impl Fn(&mut Recv, #(#args_ty,)*) -> () + Send + Sync + 'static) -> Self {
