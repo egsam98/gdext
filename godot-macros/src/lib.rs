@@ -969,7 +969,7 @@ pub fn impl_callable(tokens: TokenStream) -> TokenStream {
         macro_rules! #macro_name {
             ($recv:expr, $func:expr) => {
                 #type_name {
-                    name: stringify!(func),
+                    name: stringify!($func),
                     recv: $recv,
                     f: Box::new($func),
                 }
