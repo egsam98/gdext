@@ -965,6 +965,19 @@ pub fn impl_callable(tokens: TokenStream) -> TokenStream {
             pub f: Box<dyn Fn(&mut Recv, #(#args_ty,)*) -> () + Send + Sync>,
         }
 
+        #[macro_export]
+        macro_rules! #macro_name {
+            ($recv:expr, $func:expr) => {
+                #type_name {
+                    name: stringify!(func),
+                    recv: $recv,
+                    f: Box::new($func),
+                }
+            };
+        }
+
+        pub use #macro_name;
+
         impl <'a, Recv: crate::obj::WithBaseField, #(#args_ty: crate::meta::FromGodot,)*> #type_name<'a, Recv, #(#args_ty,)*> {
             pub fn new(recv: Gd<Recv>, f: impl Fn(&mut Recv, #(#args_ty,)*) -> () + Send + Sync + 'static) -> Self {
                 Self {
