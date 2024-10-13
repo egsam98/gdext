@@ -488,3 +488,15 @@ impl_callable!(2);
 impl_callable!(3);
 impl_callable!(4);
 impl_callable!(5);
+
+macro_rules! callable0 {
+    ($recv:ident, $func:expr) => {
+        Callable0 {
+            name: stringify!(func),
+            recv: $recv,
+            f: Box::new($func),
+        }
+    };
+}
+
+pub(crate) use callable0;
