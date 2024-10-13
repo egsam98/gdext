@@ -499,4 +499,4 @@ macro_rules! callable0 {
     };
 }
 
-pub(crate) use callable0;
+pub use callable0;
