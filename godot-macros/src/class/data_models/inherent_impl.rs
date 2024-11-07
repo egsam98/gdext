@@ -123,7 +123,7 @@ pub fn transform_inherent_impl(mut impl_block: venial::Impl) -> ParseResult<Toke
                     .connect_ex(#sig_name, &callable)
                     .flags(godot::classes::object::ConnectFlags::DEFERRED.ord() as u32)
                     .done();
-                SignalHandle::new(self.base().instance_id(), #sig_name, callable)
+                SignalHandle::new(self.base().instance_id(), #sig_name.to_string(), callable)
             }
         }
     });
