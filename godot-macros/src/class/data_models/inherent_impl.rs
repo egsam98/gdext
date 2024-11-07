@@ -114,7 +114,7 @@ pub fn transform_inherent_impl(mut impl_block: venial::Impl) -> ParseResult<Toke
 
         quote! {
             pub fn #func_emit_name(&mut self, #(#args,)*) {
-                self.base_mut().emit_signal(#sig_name.into(), &[#(#args_name.to_variant(),)*]);
+                self.base_mut().emit_signal(&#sig_name, &[#(#args_name.to_variant(),)*]);
             }
 
             pub fn #func_connect_name<Recv: godot::obj::WithBaseField + Inherits<Object>>(&mut self, cb: #callable) -> SignalHandle {
