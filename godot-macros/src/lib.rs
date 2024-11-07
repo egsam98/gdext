@@ -978,17 +978,16 @@ pub fn impl_callable(tokens: TokenStream) -> TokenStream {
 
         pub use #macro_name;
 
-        impl <Recv: crate::obj::WithBaseField + 'static, #(#args_ty: crate::meta::FromGodot + 'static,)*> crate::meta::AsArg<Callable> for #type_name<Recv, #(#args_ty,)*> {
-            fn into_arg<'r>(self) -> crate::meta::CowArg<'r, Callable> {
-                let cb = Callable::from_fn(self.name, move |args| {
-                        let id = args.last().unwrap().to::<InstanceId>();
-                        if let Ok(mut gd) = Gd::<Recv>::try_from_instance_id(id) {
-                            (self.f)(&mut gd.bind_mut(), #(#call_args,)*);
-                        };
-                        Ok(().to_variant())
-                    })
-                    .bindv(&crate::builtin::Array::from_iter([self.recv.instance_id().to_variant()]));
-                crate::meta::CowArg::Owned(cb)
+        impl <Recv: crate::obj::WithBaseField + 'static, #(#args_ty: crate::meta::FromGodot + 'static,)*> From<#type_name<Recv, #(#args_ty,)*>> for Callable {
+            fn from(value: #type_name<Recv, #(#args_ty,)*>) -> Self {
+                Callable::from_fn(value.name, move |args| {
+                    let id = args.last().unwrap().to::<InstanceId>();
+                    if let Ok(mut gd) = Gd::<Recv>::try_from_instance_id(id) {
+                        (value.f)(&mut gd.bind_mut(), #(#call_args,)*);
+                    };
+                    Ok(().to_variant())
+                })
+                .bindv(&crate::builtin::Array::from_iter([value.recv.instance_id().to_variant()]))
             }
         }
     };
