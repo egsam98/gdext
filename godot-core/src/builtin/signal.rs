@@ -211,18 +211,18 @@ impl fmt::Display for Signal {
 
 pub struct SignalHandle {
     id: InstanceId,
-    name: StringName,
+    name: String,
     cb: Callable,
 }
 
 impl SignalHandle {
-    pub fn new(id: InstanceId, name: StringName, cb: Callable) -> Self {
+    pub fn new(id: InstanceId, name: String, cb: Callable) -> Self {
         Self { id, name, cb }
     }
 
     pub fn disconnect(&mut self) {
         if let Ok(mut obj) = Gd::<Object>::try_from_instance_id(self.id) {
-            obj.disconnect(self.name.clone(), self.cb.clone());
+            obj.disconnect(&self.name, &self.cb);
         };
     }
 }
