@@ -13,7 +13,7 @@
 mod bench;
 mod class;
 mod derive;
-#[cfg(all(feature = "docs", since_api = "4.3"))]
+#[cfg(all(feature = "register-docs", since_api = "4.3"))]
 mod docs;
 mod gdextension;
 mod itest;
@@ -658,7 +658,7 @@ pub fn derive_godot_class(input: TokenStream) -> TokenStream {
 /// impl MyStruct {
 ///     #[func(virtual)]
 ///     fn language(&self) -> GString {
-///         "Rust".into()
+///         GString::from("Rust")
 ///     }
 /// }
 /// # }
