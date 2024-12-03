@@ -20,8 +20,8 @@ use crate::meta::{
     ParamType, PropertyHintInfo, RefArg, ToGodot,
 };
 use crate::obj::{
-    bounds, cap, Bounds, EngineEnum, GdDerefTarget, GdMut, GdRef, GodotClass, Inherits, InstanceId,
-    RawGd,
+    bounds, cap, Bounds, DynGd, EngineEnum, GdDerefTarget, GdMut, GdRef, GodotClass, Inherits,
+    InstanceId, RawGd,
 };
 use crate::private::callbacks;
 use crate::registry::property::{Export, Var};
@@ -384,7 +384,7 @@ impl<T: GodotClass> Gd<T> {
     /// object for further casts.
     pub fn try_cast<Derived>(self) -> Result<Gd<Derived>, Self>
     where
-        Derived: GodotClass + Inherits<T>,
+        Derived: Inherits<T>,
     {
         // Separate method due to more restrictive bounds.
         self.owned_cast()
@@ -396,7 +396,7 @@ impl<T: GodotClass> Gd<T> {
     /// If the class' dynamic type is not `Derived` or one of its subclasses. Use [`Self::try_cast()`] if you want to check the result.
     pub fn cast<Derived>(self) -> Gd<Derived>
     where
-        Derived: GodotClass + Inherits<T>,
+        Derived: Inherits<T>,
     {
         self.owned_cast().unwrap_or_else(|from_obj| {
             panic!(
@@ -429,6 +429,19 @@ impl<T: GodotClass> Gd<T> {
             let object_ptr = callbacks::create::<T>(std::ptr::null_mut());
             Gd::from_obj_sys(object_ptr)
         }
+    }
+
+    /// Upgrades to a `DynGd<T, D>` pointer, enabling the `D` abstraction.
+    ///
+    /// The `D` parameter can typically be inferred when there is a single `AsDyn<...>` implementation for `T`.  \
+    /// Otherwise, use it as `gd.into_dyn::<dyn MyTrait>()`.
+    #[must_use]
+    pub fn into_dyn<D>(self) -> DynGd<T, D>
+    where
+        T: crate::obj::AsDyn<D> + Bounds<Declarer = bounds::DeclUser>,
+        D: ?Sized,
+    {
+        DynGd::<T, D>::from_gd(self)
     }
 
     /// Returns a callable referencing a method from this object named `method_name`.
@@ -679,6 +692,7 @@ impl<T: GodotClass> GodotConvert for Gd<T> {
 }
 
 impl<T: GodotClass> ToGodot for Gd<T> {
+    // TODO return RefArg here?
     type ToVia<'v> = Gd<T>;
 
     fn to_godot(&self) -> Self::ToVia<'_> {
@@ -694,15 +708,20 @@ impl<T: GodotClass> FromGodot for Gd<T> {
 }
 
 impl<T: GodotClass> GodotType for Gd<T> {
+    // Some #[doc(hidden)] are repeated despite already declared in trait; some IDEs suggest in auto-complete otherwise.
     type Ffi = RawGd<T>;
 
-    type ToFfi<'f> = RefArg<'f, RawGd<T>>
-    where Self: 'f;
+    type ToFfi<'f>
+        = RefArg<'f, RawGd<T>>
+    where
+        Self: 'f;
 
+    #[doc(hidden)]
     fn to_ffi(&self) -> Self::ToFfi<'_> {
         RefArg::new(&self.raw)
     }
 
+    #[doc(hidden)]
     fn into_ffi(self) -> Self::Ffi {
         self.raw
     }
@@ -715,7 +734,7 @@ impl<T: GodotClass> GodotType for Gd<T> {
         }
     }
 
-    fn class_name() -> crate::meta::ClassName {
+    fn class_name() -> ClassName {
         T::class_name()
     }
 
@@ -773,6 +792,7 @@ impl<T: GodotClass> ArrayElement for Option<Gd<T>> {
 }
 
 impl<'r, T: GodotClass> AsArg<Gd<T>> for &'r Gd<T> {
+    #[doc(hidden)] // Repeated despite already hidden in trait; some IDEs suggest this otherwise.
     fn into_arg<'cow>(self) -> CowArg<'cow, Gd<T>>
     where
         'r: 'cow, // Original reference must be valid for at least as long as the returned cow.
@@ -793,7 +813,7 @@ impl<T: GodotClass> ParamType for Gd<T> {
     }
 }
 
-impl<'r, T: GodotClass> AsArg<Option<Gd<T>>> for Option<&'r Gd<T>> {
+impl<T: GodotClass> AsArg<Option<Gd<T>>> for Option<&Gd<T>> {
     fn into_arg<'cow>(self) -> CowArg<'cow, Option<Gd<T>>> {
         // TODO avoid cloning.
         match self {

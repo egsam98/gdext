@@ -67,12 +67,18 @@ fn callable_hash() {
 
 #[itest]
 fn callable_object_method() {
-    let obj = CallableTestObj::new_gd();
-    let callable = obj.callable("foo");
+    let object = CallableTestObj::new_gd();
+    let object_id = object.instance_id();
+    let callable = object.callable("foo");
 
-    assert_eq!(callable.object(), Some(obj.clone().upcast::<Object>()));
-    assert_eq!(callable.object_id(), Some(obj.instance_id()));
+    assert_eq!(callable.object(), Some(object.clone().upcast::<Object>()));
+    assert_eq!(callable.object_id(), Some(object_id));
     assert_eq!(callable.method_name(), Some("foo".into()));
+
+    // Invalidating the object still returns the old ID, however not the object.
+    drop(object);
+    assert_eq!(callable.object_id(), Some(object_id));
+    assert_eq!(callable.object(), None);
 
     assert_eq!(Callable::invalid().object(), None);
     assert_eq!(Callable::invalid().object_id(), None);
@@ -109,7 +115,7 @@ fn callable_call_return() {
         callable.callv(&varray![10]),
         10.to_variant().stringify().to_variant()
     );
-    // errors in godot but does not crash
+    // Errors in Godot, but should not crash.
     assert_eq!(callable.callv(&varray!["string"]), Variant::nil());
 }
 
@@ -188,6 +194,14 @@ pub mod custom_callable {
         // Important to test 0 arguments, as the FFI call passes a null pointer for the argument array.
         let sum3 = callable.callv(&varray![]);
         assert_eq!(sum3, 0.to_variant());
+    }
+
+    #[itest]
+    fn callable_custom_with_err() {
+        let callable_with_err =
+            Callable::from_fn("on_error_doesnt_crash", |_args: &[&Variant]| Err(()));
+        // Errors in Godot, but should not crash.
+        assert_eq!(callable_with_err.callv(&varray![]), Variant::nil());
     }
 
     #[itest]
