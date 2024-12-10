@@ -1119,7 +1119,7 @@ pub fn impl_callable(tokens: TokenStream) -> TokenStream {
     let out = quote! {
         pub struct #type_name<Recv: crate::obj::WithBaseField, #(#args_ty: crate::meta::FromGodot,)*> {
             pub name: String,
-            pub recv: Gd<Recv>,
+            pub recv: crate::obj::InstanceId,
             pub f: Box<dyn Fn(&mut Recv, #(#args_ty,)*) -> () + Send + Sync>,
         }
 
@@ -1128,7 +1128,7 @@ pub fn impl_callable(tokens: TokenStream) -> TokenStream {
             ($recv:expr, $func:expr) => {
                 #type_name {
                     name: format!("{}: {}", file!(), stringify!($func)),
-                    recv: $recv,
+                    recv: $recv.instance_id(),
                     f: Box::new($func),
                 }
             };
@@ -1145,7 +1145,7 @@ pub fn impl_callable(tokens: TokenStream) -> TokenStream {
                     };
                     Ok(().to_variant())
                 })
-                .bindv(&crate::builtin::Array::from_iter([value.recv.instance_id().to_variant()]))
+                .bindv(&crate::builtin::Array::from_iter([value.recv.to_variant()]))
             }
         }
     };
