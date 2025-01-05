@@ -180,6 +180,15 @@ where
     result
 }
 
+pub fn i64_to_ordering(value: i64) -> std::cmp::Ordering {
+    match value {
+        -1 => std::cmp::Ordering::Less,
+        0 => std::cmp::Ordering::Equal,
+        1 => std::cmp::Ordering::Greater,
+        _ => panic!("cannot convert value {value} to cmp::Ordering"),
+    }
+}
+
 /*
 pub fn unqualified_type_name<T>() -> &'static str {
     let type_name = std::any::type_name::<T>();
@@ -251,9 +260,9 @@ fn strip_module_paths(full_name: &str) -> String {
 // ----------------------------------------------------------------------------------------------------------------------------------------------
 // Private helpers
 
-/// Metafunction to extract inner function pointer types from all the bindgen Option<F> type names.
+/// Metafunction to extract inner function pointer types from all the bindgen `Option<F>` type names.
 /// Needed for `unsafe_cast_fn_ptr` macro.
-pub(crate) trait Inner: Sized {
+pub trait Inner: Sized {
     type FnPtr: Sized;
 }
 
