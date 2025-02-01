@@ -12,7 +12,9 @@
 
 use crate::builder::ClassBuilder;
 use crate::builtin::{StringName, Variant};
-use crate::obj::{cap, Base, GodotClass, UserClass};
+use crate::classes::Object;
+use crate::obj::{bounds, cap, AsDyn, Base, Bounds, Gd, GodotClass, Inherits, UserClass};
+use crate::registry::plugin::ErasedDynGd;
 use crate::storage::{as_storage, InstanceStorage, Storage, StorageRefCounted};
 use godot_ffi as sys;
 use std::any::Any;
@@ -113,15 +115,12 @@ pub unsafe extern "C" fn free<T: GodotClass>(
 pub unsafe extern "C" fn get_virtual<T: cap::ImplementsGodotVirtual>(
     _class_user_data: *mut std::ffi::c_void,
     name: sys::GDExtensionConstStringNamePtr,
-    // TODO(v0.3,virtual-compat): re-enable parameter
-    //hash: u32,
+    hash: u32,
 ) -> sys::GDExtensionClassCallVirtual {
     // This string is not ours, so we cannot call the destructor on it.
     let borrowed_string = StringName::borrow_string_sys(name);
     let method_name = borrowed_string.to_string();
 
-    // TODO(v0.3,virtual-compat): remove local var
-    let hash = 0;
     T::__virtual_call(method_name.as_str(), hash)
 }
 
@@ -133,6 +132,7 @@ pub unsafe extern "C" fn get_virtual<T: cap::ImplementsGodotVirtual>(
     // This string is not ours, so we cannot call the destructor on it.
     let borrowed_string = StringName::borrow_string_sys(name);
     let method_name = borrowed_string.to_string();
+
     T::__virtual_call(method_name.as_str())
 }
 
@@ -140,15 +140,12 @@ pub unsafe extern "C" fn get_virtual<T: cap::ImplementsGodotVirtual>(
 pub unsafe extern "C" fn default_get_virtual<T: UserClass>(
     _class_user_data: *mut std::ffi::c_void,
     name: sys::GDExtensionConstStringNamePtr,
-    // TODO(v0.3,virtual-compat): re-enable parameter
-    // hash: u32,
+    hash: u32,
 ) -> sys::GDExtensionClassCallVirtual {
     // This string is not ours, so we cannot call the destructor on it.
     let borrowed_string = StringName::borrow_string_sys(name);
     let method_name = borrowed_string.to_string();
 
-    // TODO(v0.3,virtual-compat): remove local var
-    let hash = 0;
     T::__default_virtual_call(method_name.as_str(), hash)
 }
 
@@ -400,4 +397,23 @@ pub fn register_user_methods_constants<T: cap::ImplementsGodotApi>(_class_builde
 
 pub fn register_user_rpcs<T: cap::ImplementsGodotApi>(object: &mut dyn Any) {
     T::__register_rpcs(object);
+}
+
+/// # Safety
+///
+/// `obj` must be castable to `T`.
+#[deny(unsafe_op_in_unsafe_fn)]
+pub unsafe fn dynify_fn<T, D>(obj: Gd<Object>) -> ErasedDynGd
+where
+    T: GodotClass + Inherits<Object> + AsDyn<D> + Bounds<Declarer = bounds::DeclUser>,
+    D: ?Sized + 'static,
+{
+    // SAFETY: `obj` is castable to `T`.
+    let obj = unsafe { obj.try_cast::<T>().unwrap_unchecked() };
+    let obj = obj.into_dyn::<D>();
+    let obj = obj.upcast::<Object>();
+
+    ErasedDynGd {
+        boxed: Box::new(obj),
+    }
 }
