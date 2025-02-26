@@ -202,7 +202,7 @@ impl SignalCollection {
         self.collection_methods.push(quote! {
             // Deliberately not #[doc(hidden)] for IDE completion.
             #(#signal_cfg_attrs)*
-            fn #signal_name(self) -> #individual_struct_name<'a> {
+            pub fn #signal_name(self) -> #individual_struct_name<'a> {
                 #individual_struct_name {
                     typed: ::godot::register::TypedSignal::new(self.__internal_obj, #signal_name_str)
                 }
