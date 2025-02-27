@@ -9,7 +9,7 @@ use crate::builtin::{Callable, GString, Variant};
 use crate::classes::object::ConnectFlags;
 use crate::meta;
 use crate::obj::{bounds, Bounds, Gd, GodotClass, WithBaseField};
-use crate::registry::signal::{SignalReceiver, TypedSignal};
+use crate::registry::signal::{SignalReceiver, TypedSignal, SignalHandle};
 
 /// Type-state builder for customizing signal connections.
 ///
@@ -275,7 +275,7 @@ where
     ///
     /// Actually connects the signal with the provided function/method. Consumes this builder instance and returns the mutable borrow of
     /// the parent [`TypedSignal`] for further use.
-    pub fn done(self) {
+    pub fn done(self) -> SignalHandle<'ts> {
         let Self {
             parent_sig,
             data,
@@ -295,7 +295,7 @@ where
         #[cfg(not(feature = "experimental-threads"))]
         let callable = Callable::from_local_fn(callable_name, godot_fn);
 
-        parent_sig.inner_connect_untyped(&callable, data.connect_flags);
+        parent_sig.inner_connect_untyped(callable, data.connect_flags)
     }
 }
 

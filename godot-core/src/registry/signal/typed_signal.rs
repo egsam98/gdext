@@ -10,6 +10,8 @@ use crate::classes::object::ConnectFlags;
 use crate::obj::{bounds, Bounds, Gd, GodotClass, WithBaseField};
 use crate::registry::signal::{make_callable_name, make_godot_fn, ConnectBuilder, SignalReceiver};
 use crate::{classes, meta};
+use crate::gen::classes::Object;
+
 use std::borrow::Cow;
 use std::marker::PhantomData;
 
@@ -113,7 +115,7 @@ impl<'c, C: WithBaseField, Ps: meta::ParamTuple> TypedSignal<'c, C, Ps> {
     ///
     /// To connect to a method of the own object `self`, use [`connect_self()`][Self::connect_self].  \
     /// If you need cross-thread signals or connect flags, use [`connect_builder()`][Self::connect_builder].
-    pub fn connect<F>(&mut self, mut function: F)
+    pub fn connect<F>(&mut self, mut function: F) -> SignalHandle
     where
         F: SignalReceiver<(), Ps>,
     {
@@ -121,14 +123,14 @@ impl<'c, C: WithBaseField, Ps: meta::ParamTuple> TypedSignal<'c, C, Ps> {
             function.call((), args);
         });
 
-        self.inner_connect_godot_fn::<F>(godot_fn);
+        self.inner_connect_godot_fn::<F>(godot_fn)
     }
 
     /// Connect a method (member function) with `&mut self` as the first parameter.
     ///
     /// To connect to methods on other objects, use [`connect_obj()`][Self::connect_obj].  \
     /// If you need a `&self` receiver, cross-thread signals or connect flags, use [`connect_builder()`][Self::connect_builder].
-    pub fn connect_self<F>(&mut self, mut function: F)
+    pub fn connect_self<F>(&mut self, mut function: F) -> SignalHandle
     where
         for<'c_rcv> F: SignalReceiver<&'c_rcv mut C, Ps>,
     {
@@ -139,14 +141,14 @@ impl<'c, C: WithBaseField, Ps: meta::ParamTuple> TypedSignal<'c, C, Ps> {
             function.call(instance, args);
         });
 
-        self.inner_connect_godot_fn::<F>(godot_fn);
+        self.inner_connect_godot_fn::<F>(godot_fn)
     }
 
     /// Connect a method (member function) with any `Gd<T>` (not `self`) as the first parameter.
     ///
     /// To connect to methods on the same object that declares the `#[signal]`, use [`connect_self()`][Self::connect_self].  \
     /// If you need cross-thread signals or connect flags, use [`connect_builder()`][Self::connect_builder].
-    pub fn connect_obj<F, OtherC>(&mut self, object: &Gd<OtherC>, mut function: F)
+    pub fn connect_obj<F, OtherC>(&mut self, object: &Gd<OtherC>, mut function: F) -> SignalHandle
     where
         OtherC: GodotClass + Bounds<Declarer = bounds::DeclUser>,
         for<'c_rcv> F: SignalReceiver<&'c_rcv mut OtherC, Ps>,
@@ -158,7 +160,7 @@ impl<'c, C: WithBaseField, Ps: meta::ParamTuple> TypedSignal<'c, C, Ps> {
             function.call(instance, args);
         });
 
-        self.inner_connect_godot_fn::<F>(godot_fn);
+        self.inner_connect_godot_fn::<F>(godot_fn)
     }
 
     /// Fully customizable connection setup.
@@ -176,7 +178,7 @@ impl<'c, C: WithBaseField, Ps: meta::ParamTuple> TypedSignal<'c, C, Ps> {
     fn inner_connect_godot_fn<F>(
         &mut self,
         godot_fn: impl FnMut(&[&Variant]) -> Result<Variant, ()> + 'static,
-    ) {
+    ) -> SignalHandle {
         let callable_name = make_callable_name::<F>();
         let callable = Callable::from_local_fn(&callable_name, godot_fn);
 
@@ -184,6 +186,7 @@ impl<'c, C: WithBaseField, Ps: meta::ParamTuple> TypedSignal<'c, C, Ps> {
         self.owner.with_object_mut(|obj| {
             obj.connect(signal_name, &callable);
         });
+        SignalHandle::new(self, callable)
     }
 
     /// Connect an untyped callable, with optional flags.
@@ -192,19 +195,36 @@ impl<'c, C: WithBaseField, Ps: meta::ParamTuple> TypedSignal<'c, C, Ps> {
     /// `callable` and thus type-erased into runtime logic.
     pub(super) fn inner_connect_untyped(
         &mut self,
-        callable: &Callable,
+        callable: Callable,
         flags: Option<ConnectFlags>,
-    ) {
+    ) -> SignalHandle {
         use crate::obj::EngineBitfield;
 
         let signal_name = self.name.as_ref();
 
         self.owner.with_object_mut(|obj| {
-            let mut c = obj.connect_ex(signal_name, callable);
+            let mut c = obj.connect_ex(signal_name, &callable);
             if let Some(flags) = flags {
                 c = c.flags(flags.ord() as u32);
             }
             c.done();
         });
+        SignalHandle::new(self, callable)
+    }
+}
+
+pub struct SignalHandle<'a> {
+    name: &'a str,
+    owner: Gd<Object>,
+    callable: Callable,
+}
+
+impl <'a> SignalHandle<'a> {
+    fn new<C: WithBaseField, Ps>(signal: &'a TypedSignal<C, Ps>, callable: Callable) -> Self {
+        SignalHandle { name: &signal.name, owner: signal.owner.to_owned().upcast_object(), callable: callable }
+    }
+
+    pub fn disconnect(&mut self) {
+        self.owner.disconnect(self.name, &self.callable);
     }
 }
