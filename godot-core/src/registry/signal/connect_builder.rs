@@ -275,7 +275,7 @@ where
     ///
     /// Actually connects the signal with the provided function/method. Consumes this builder instance and returns the mutable borrow of
     /// the parent [`TypedSignal`] for further use.
-    pub fn done(self) -> SignalHandle<'ts> {
+    pub fn done(self) -> SignalHandle {
         let Self {
             parent_sig,
             data,

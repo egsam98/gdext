@@ -213,18 +213,18 @@ impl<'c, C: WithBaseField, Ps: meta::ParamTuple> TypedSignal<'c, C, Ps> {
     }
 }
 
-pub struct SignalHandle<'a> {
-    name: &'a str,
+pub struct SignalHandle {
+    name: Cow<'static, str>,
     owner: Gd<Object>,
     callable: Callable,
 }
 
-impl <'a> SignalHandle<'a> {
-    fn new<C: WithBaseField, Ps>(signal: &'a TypedSignal<C, Ps>, callable: Callable) -> Self {
-        SignalHandle { name: &signal.name, owner: signal.owner.to_owned().upcast_object(), callable: callable }
+impl SignalHandle {
+    fn new<C: WithBaseField, Ps>(signal: &TypedSignal<C, Ps>, callable: Callable) -> Self {
+        SignalHandle { name: signal.name.clone(), owner: signal.owner.to_owned().upcast_object(), callable }
     }
 
-    pub fn disconnect(&mut self) {
-        self.owner.disconnect(self.name, &self.callable);
+    pub fn disconnect(mut self) {
+        self.owner.disconnect(&*self.name, &self.callable);
     }
 }
