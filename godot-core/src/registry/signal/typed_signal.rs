@@ -134,11 +134,11 @@ impl<'c, C: WithBaseField, Ps: meta::ParamTuple> TypedSignal<'c, C, Ps> {
     where
         for<'c_rcv> F: SignalReceiver<&'c_rcv mut C, Ps>,
     {
-        let mut gd = self.owner.to_owned();
+        let id = self.owner.to_owned().instance_id();
         let godot_fn = make_godot_fn(move |args| {
-            let mut instance = gd.bind_mut();
-            let instance = &mut *instance;
-            function.call(instance, args);
+            if let Ok(mut instance) = Gd::<C>::try_from_instance_id(id) {
+                function.call(&mut instance.bind_mut(), args);
+            }
         });
 
         self.inner_connect_godot_fn::<F>(godot_fn)
@@ -153,11 +153,11 @@ impl<'c, C: WithBaseField, Ps: meta::ParamTuple> TypedSignal<'c, C, Ps> {
         OtherC: GodotClass + Bounds<Declarer = bounds::DeclUser>,
         for<'c_rcv> F: SignalReceiver<&'c_rcv mut OtherC, Ps>,
     {
-        let mut gd = object.clone();
+        let id = object.instance_id();
         let godot_fn = make_godot_fn(move |args| {
-            let mut instance = gd.bind_mut();
-            let instance = &mut *instance;
-            function.call(instance, args);
+            if let Ok(mut instance) = Gd::<OtherC>::try_from_instance_id(id) {
+                function.call(&mut instance.bind_mut(), args);
+            }
         });
 
         self.inner_connect_godot_fn::<F>(godot_fn)
