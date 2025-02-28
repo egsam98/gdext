@@ -5,7 +5,7 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 
-use crate::builtin::{Callable, Variant};
+use crate::{builtin::{Callable, Variant}, meta::ToGodot, obj::EngineBitfield};
 use crate::classes::object::ConnectFlags;
 use crate::obj::{bounds, Bounds, Gd, GodotClass, WithBaseField};
 use crate::registry::signal::{make_callable_name, make_godot_fn, ConnectBuilder, SignalReceiver};
@@ -184,7 +184,7 @@ impl<'c, C: WithBaseField, Ps: meta::ParamTuple> TypedSignal<'c, C, Ps> {
 
         let signal_name = self.name.as_ref();
         self.owner.with_object_mut(|obj| {
-            obj.connect(signal_name, &callable);
+            obj.connect_ex(signal_name, &callable).flags(ConnectFlags::DEFERRED.to_godot() as u32).done();
         });
         SignalHandle::new(self, callable)
     }
