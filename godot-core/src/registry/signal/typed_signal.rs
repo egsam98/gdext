@@ -145,7 +145,7 @@ impl<'c, C: WithSignals, Ps: meta::ParamTuple> TypedSignal<'c, C, Ps> {
     ) -> ConnectHandle {
         let callable_name = make_callable_name::<F>();
         let callable = bound.linked_callable(&callable_name, godot_fn);
-        self.inner_connect_untyped(callable, None)
+        self.inner_connect_untyped(callable, Some(ConnectFlags::DEFERRED))
     }
 
     /// Connect an untyped callable, with optional flags.
